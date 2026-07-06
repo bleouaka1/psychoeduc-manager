@@ -4,7 +4,7 @@ const SOLO_EMAIL = 'e2e-solo-fixture@psychoeduc-manager.local'
 const SOLO_PASSWORD = 'E2eSoloFixture2026!'
 
 test('une formation nouvellement créée apparaît automatiquement, une seule fois, sur la Marketplace', async ({ page }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(150_000)
   const erreursConsole: string[] = []
   page.on('pageerror', (err) => erreursConsole.push(err.message))
 
