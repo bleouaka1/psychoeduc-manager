@@ -36,6 +36,9 @@ const ROUTES = [
 ]
 
 test('toutes les pages du menu latéral se chargent sans erreur JS ni erreur serveur', async ({ page }) => {
+  // 28 navigations séquentielles : le timeout par défaut (30s) est trop juste dès qu'il
+  // y a de la latence ambiante (ex. plusieurs sessions de dev partageant le même serveur).
+  test.setTimeout(120_000)
   await page.goto('/login')
   await page.fill('#email', FIXTURE_EMAIL)
   await page.fill('#password', FIXTURE_PASSWORD)

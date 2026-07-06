@@ -8,6 +8,7 @@ import { sAchterOffre, creerOffre, modifierOffre, retirerOffre, supprimerOffre }
 import { FavoriToggle } from '../_components/FavoriToggle'
 import { OffreForm } from '../../_components/OffreForm'
 import { OffresListe } from '../../_components/OffresListe'
+import { BadgeEnVerification } from '../../_components/BadgeEnVerification'
 
 const VENDEUR_LABEL: Record<string, string> = { solo: 'Indépendant', structure: 'Structure', employeur: 'Entreprise' }
 
@@ -42,10 +43,13 @@ export default async function MarketplacePubliquePage({
   const { data: favoris } = user ? await supabase.from('favoris_marketplace').select('offre_type, offre_id').eq('profile_id', user.id) : { data: [] as any[] }
   const favorisSet = new Set((favoris ?? []).map((f: any) => `${f.offre_type}:${f.offre_id}`))
 
+  // Exclut les offres formation auto-créées : elles se gèrent depuis "Mes formations",
+  // ce panneau ne concerne que les offres produit/service soumises manuellement ici.
   const { data: mesOffres } = await supabase
     .from('marketplace_offres')
     .select('id, titre, type_offre, description, prix, statut, image_couverture_url, stock_disponible, modalites_livraison, duree_texte, mode_transmission')
     .eq('organisation_id', organisation.id)
+    .is('formation_id', null)
     .order('created_at', { ascending: false })
 
   const offreEnEdition = editId ? (mesOffres ?? []).find((o: any) => o.id === editId) : null
@@ -126,11 +130,18 @@ export default async function MarketplacePubliquePage({
                   </div>
                   <div className="p-4 flex flex-col gap-1.5 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-display text-[14.5px] text-text-primary">{o.titre}</p>
+                      {o.type_offre === 'formation' ? (
+                        <Link href={`/solo/marketplace/formation/${o.formation_id}`} className="font-display text-[14.5px] text-text-primary hover:text-accent-gold">
+                          {o.titre}
+                        </Link>
+                      ) : (
+                        <p className="font-display text-[14.5px] text-text-primary">{o.titre}</p>
+                      )}
                       <FavoriToggle offreType={offreType} offreId={o.id} actif={estFavori} />
                     </div>
+                    {o.statut === 'visible_en_verification' && <BadgeEnVerification />}
                     <p className="text-text-muted text-[11px] flex items-center gap-1.5 flex-wrap">
-                      Par {o.organisation_nom}
+                      Par <Link href={`/solo/marketplace/formateur/${o.organisation_id}`} className="hover:text-accent-gold hover:underline">{o.organisation_nom}</Link>
                       <span className="bg-bg-card border border-border-soft px-1.5 py-0.5 rounded-full text-[9.5px]">{VENDEUR_LABEL[o.type_organisation] ?? o.type_organisation}</span>
                       {o.vendeur_est_fondateur && (
                         <span className="bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base text-[9px] font-bold px-1.5 py-0.5 rounded-full">FONDATEUR</span>

@@ -7,6 +7,7 @@ import { creerFormation, publierFormation, suspendreFormation, archiverFormation
 import { televerserRessource, supprimerRessource } from './ressources-actions'
 import { SupprimerAvecConfirmation } from '../_components/ConfirmModal'
 import { RelancerEleve } from '../_components/RelancerEleve'
+import { BadgeEnVerification } from '../../_components/BadgeEnVerification'
 
 const SEUIL_INACTIVITE_JOURS = 14
 
@@ -61,6 +62,11 @@ export default async function SoloFormationsPage({ searchParams }: { searchParam
       ? supabase.from('ressources_formation').select('id, formation_id, nom_fichier, chemin_storage, taille_octets').in('formation_id', formationIds)
       : Promise.resolve({ data: [] as any[] }),
   ])
+
+  // Statut de l'offre marketplace auto-créée à la publication (badge de vérification).
+  const { data: offresLiees } =
+    formationIds.length > 0 ? await supabase.from('marketplace_offres').select('formation_id, statut').in('formation_id', formationIds) : { data: [] as any[] }
+  const offreStatutParFormation = new Map((offresLiees ?? []).map((o: any) => [o.formation_id, o.statut]))
 
   const inscriptionIds = (inscriptions ?? []).map((i: any) => i.id)
   const acheteurIds = [...new Set((inscriptions ?? []).map((i: any) => i.acheteur_id))]
@@ -208,6 +214,11 @@ export default async function SoloFormationsPage({ searchParams }: { searchParam
                     <p className="text-text-primary text-[13.5px] font-medium font-display">{f.titre}</p>
                     <StatusPill status={STATUT_PILL[f.statut] ?? 'idle'}>{STATUT_LABEL[f.statut] ?? f.statut}</StatusPill>
                   </div>
+                  {offreStatutParFormation.get(f.id) === 'visible_en_verification' && (
+                    <div className="mb-2">
+                      <BadgeEnVerification />
+                    </div>
+                  )}
                   {f.description && <p className="text-text-muted text-xs mb-2.5 max-w-2xl">{f.description}</p>}
                   <div className="flex flex-wrap gap-2 mb-3">
                     {f.duree_texte && (
