@@ -40,6 +40,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase CLI cache (régénéré automatiquement par `supabase link`/CLI, machine-spécifique)
+/supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
