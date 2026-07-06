@@ -2,6 +2,24 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-07 — Publication auto des formations + badge vérification : ÉTAPE 1/3 (schéma), en attente de validation d'Angenor avant l'Étape 2
+
+Angenor a explicitement demandé de construire cette fonctionnalité étape par étape avec validation entre chaque étape (schéma → logique de création automatique → UI). Ce qui suit ne couvre QUE l'étape 1.
+
+**Nouveau statut `visible_en_verification` sur `marketplace_offres.statut`** : offre visible publiquement immédiatement (contrairement à `en_attente_validation` qui masque), réservée aux formations auto-publiées. Le trigger `enforce_marketplace_offre_statut()` distingue désormais les deux chemins à l'INSERT : `type_offre='formation' AND formation_id is not null` → `visible_en_verification` ; tout le reste (produit/service soumis manuellement) → `en_attente_validation` comme avant (non-régression vérifiée par test).
+
+**RLS étendue plutôt que dupliquée** : la policy `marketplace_offres_select` (Étape 16) exposait déjà les offres `publiee` publiquement ; élargie pour inclure `visible_en_verification` dans la même clause, pas une policy séparée — c'est exactement la même sémantique de visibilité, juste un statut de plus.
+
+**Masquage par signalement étendu** : `handle_new_signalement()` ne protégeait que `statut='publiee'` ; élargi à `visible_en_verification` aussi, sinon une offre auto-publiée serait signalable sans jamais pouvoir être masquée avant validation humaine — un vrai trou de modération si non corrigé dès le schéma.
+
+**`profils_publics_formateurs.bio` conservé tel quel comme "bio courte"**, pas renommé en `bio_courte` — un renommage de colonne casserait la lecture/écriture déjà en place côté UI (`/solo/profil`) pour un gain cosmétique nul ; documenté par un `COMMENT ON COLUMN` à la place. `photo_url`, `cv_url`, `cv_texte` ajoutés en colonnes additives séparées (CV structuré distinct de la bio courte, conforme à la demande).
+
+**Badge "Vérifié", nombre de bénéficiaires accompagnés, taux de réussite, ancienneté : volontairement AUCUNE colonne ajoutée pour ces valeurs.** Ce sont des champs calculés à la lecture (comme `IgaDial` et `vue_satisfaction_vendeur` déjà en place) — les stocker en dur violerait le principe du projet "vue plutôt que table dupliquée" et désynchroniserait la valeur affichée de la réalité. Calcul réel prévu à l'étape UI.
+
+**Vérification** : nouveau script `supabase/tests/test_marketplace_auto_formations_schema.sql` (4 vérifications : statut auto-assigné correct pour une offre formation liée, non-régression pour une offre produit manuelle, visibilité publique RLS correcte pour les deux cas, masquage automatique par signalement fonctionnel sur `visible_en_verification`) — tout vert. Suites SQL existantes rejouées (`test_marketplace_generaliste.sql`, `test_compte_solo_formations.sql`) sans régression. Suite Playwright complète (18/18) rejouée sans régression (aucune UI encore modifiée à ce stade).
+
+**En attente de la validation d'Angenor avant de poursuivre à l'Étape 2** (logique de création automatique formations→marketplace_offres, en TypeScript standard plutôt qu'un trigger SQL supplémentaire, conformément à la préférence explicite du prompt et au principe déjà établi "logique métier découplée du fournisseur cloud").
+
 ## 2026-07-07 (suite) — Module Employeur, troisième trou de permission, bug de routing racine
 
 Suite à "applique toutes les améliorations" : complète les points laissés en attente de la session autonome de la nuit.
