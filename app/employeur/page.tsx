@@ -2,9 +2,11 @@ import { Store, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatCard, DataTable } from '../(dashboard)/_components/ui'
 import { getEmployeurOrganisation } from './_lib/getEmployeurOrg'
-import { creerOffreEmployeur, modifierOffreEmployeur, retirerOffreEmployeur, supprimerOffreEmployeur } from './actions'
+import { creerOffreEmployeur, modifierOffreEmployeur, retirerOffreEmployeur, supprimerOffreEmployeur, repondreMessageModerationEmployeur } from './actions'
 import { OffreForm } from '../_components/OffreForm'
 import { OffresListe } from '../_components/OffresListe'
+import { MessagesModeration } from '../_components/MessagesModeration'
+import { chargerMessagesModerationOrganisation } from '@/lib/marketplaceMessages'
 
 export default async function EmployeurPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
   const { edit: editId } = await searchParams
@@ -33,6 +35,7 @@ export default async function EmployeurPage({ searchParams }: { searchParams: Pr
   const revenuConfirme = (commandes ?? []).filter((c: any) => c.statut_paiement === 'confirme').reduce((a: number, c: any) => a + Number(c.montant_vendeur ?? c.montant_brut ?? 0), 0)
   const offreEnEdition = editId ? (offres ?? []).find((o: any) => o.id === editId) : null
   const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const messagesModeration = await chargerMessagesModerationOrganisation(organisation.id)
 
   return (
     <>
@@ -54,12 +57,16 @@ export default async function EmployeurPage({ searchParams }: { searchParams: Pr
         <OffresListe offres={offres ?? []} editHrefBase="/employeur" retirerAction={retirerOffreEmployeur} supprimerAction={supprimerOffreEmployeur} />
       </Panel>
 
-      <Panel title="Commandes reçues">
+      <Panel title="Commandes reçues" className="mb-6">
         <DataTable
           columns={['Offre', 'Montant', 'Statut', 'Date']}
           rows={(commandes ?? []).map((c: any) => [c.marketplace_offres?.titre ?? '—', `${c.montant_brut} FCFA`, c.statut_paiement, formatter.format(new Date(c.created_at))])}
           emptyText="Aucune commande reçue pour le moment."
         />
+      </Panel>
+
+      <Panel title="Messages du Fondateur">
+        <MessagesModeration messages={messagesModeration} action={repondreMessageModerationEmployeur} />
       </Panel>
     </>
   )

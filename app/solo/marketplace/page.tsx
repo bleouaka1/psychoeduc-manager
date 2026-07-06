@@ -4,11 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel } from '../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../_lib/getSoloOrg'
 import { sInscrireFormation } from '../marketplace-actions'
-import { sAchterOffre, creerOffre, modifierOffre, retirerOffre, supprimerOffre } from './actions'
+import { sAchterOffre, creerOffre, modifierOffre, retirerOffre, supprimerOffre, repondreMessageModeration } from './actions'
 import { FavoriToggle } from '../_components/FavoriToggle'
 import { OffreForm } from '../../_components/OffreForm'
 import { OffresListe } from '../../_components/OffresListe'
 import { BadgeEnVerification } from '../../_components/BadgeEnVerification'
+import { MessagesModeration } from '../../_components/MessagesModeration'
+import { chargerMessagesModerationOrganisation } from '@/lib/marketplaceMessages'
 
 const VENDEUR_LABEL: Record<string, string> = { solo: 'Indépendant', structure: 'Structure', employeur: 'Entreprise' }
 
@@ -53,6 +55,7 @@ export default async function MarketplacePubliquePage({
     .order('created_at', { ascending: false })
 
   const offreEnEdition = editId ? (mesOffres ?? []).find((o: any) => o.id === editId) : null
+  const messagesModeration = await chargerMessagesModerationOrganisation(organisation.id)
 
   const onglets = [
     { valeur: 'tout', label: 'Tout' },
@@ -190,8 +193,12 @@ export default async function MarketplacePubliquePage({
         </p>
       </Panel>
 
-      <Panel title="Mes offres (produit/service)">
+      <Panel title="Mes offres (produit/service)" className="mb-6">
         <OffresListe offres={mesOffres ?? []} editHrefBase="/solo/marketplace" retirerAction={retirerOffre} supprimerAction={supprimerOffre} />
+      </Panel>
+
+      <Panel title="Messages du Fondateur">
+        <MessagesModeration messages={messagesModeration} action={repondreMessageModeration} />
       </Panel>
     </>
   )

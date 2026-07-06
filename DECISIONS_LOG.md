@@ -2,6 +2,38 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-06 — Modération Marketplace (Fondateur) + messagerie ciblée sur une offre
+
+Construit en session interactive avec Angenor (validation à chaque étape, cf. `PLAN_MODERATION_MARKETPLACE.md`), en parallèle d'une autre session Claude Code travaillant sur "Publication auto des formations, Étape 3/3" — coordination gérée en observant `git status`/les migrations de l'autre session plutôt qu'en bloquant, aucun fichier partagé touché des deux côtés (confirmé par les deux sessions dans leurs commits respectifs).
+
+**Vue de modération étendue sur la page déjà existante `app/(dashboard)/marketplace/page.tsx`** (auparavant lecture seule) plutôt que d'en créer une nouvelle : filtre par statut, recherche titre/vendeur, 3 actions (Valider/Suspendre/Supprimer) + fiche détail + messagerie, toutes ajoutées à la même page.
+
+**Valider reste strictement réservé à `is_fondateur()`** (contrainte déjà imposée par le trigger `enforce_marketplace_offre_statut` depuis l'Étape 16, non modifiée) — écarté d'ouvrir cette action à `peut_modifier` comme demandé littéralement dans le prompt initial, car ça contredirait une règle déjà en base. Suspendre/Supprimer suivent `peut_modifier`/`is_fondateur` scoped-organisation (déjà en RLS).
+
+**`log_audit_action()` (migration `20260716000000`, poussée) : nouvelle RPC SECURITY DEFINER, seule autorisée à écrire dans `audit_logs` pour du code applicatif.** `audit_logs` a RLS activée sans policy d'écriture pour `authenticated` (append-only strict, Étape 1) — un insert direct depuis une Server Action échoue toujours. Cette RPC force `profile_id = auth.uid()` côté serveur, jamais falsifiable par l'appelant.
+
+**`messages.marketplace_offre_id` (migration `20260717000000`) : aucune nouvelle policy RLS nécessaire.** Les policies `messages_select`/`messages_insert` de l'Étape 20 (`expediteur_id/destinataire_id = auth.uid() OR is_fondateur()`) isolent déjà chaque conversation par destinataire — le cloisonnement par vendeur en découle directement. Même pattern que `destinataire_beneficiaire_id` (migration bénéficiaires). `type_message` élargi à `'moderation_marketplace'` (élargissement additif d'un CHECK).
+
+**Aucune colonne "motif" ajoutée à `marketplace_offres`** : le motif de suspension/suppression part uniquement dans la notification au vendeur et dans `audit_logs.donnees_apres` (jsonb) — cohérent avec le principe du projet "champ calculé/journalisé plutôt que colonne dupliquée".
+
+**Réponse du vendeur factorisée dans `lib/marketplaceMessages.ts` + `app/_components/MessagesModeration.tsx`, partagés entre `/solo/marketplace` et `/employeur`** — même principe de factorisation déjà établi pour `OffreForm`/`OffresListe`/`lib/marketplaceOffres.ts`.
+
+**Un vrai bug bloquant trouvé et corrigé pendant l'implémentation** : les icônes lucide-react passées en props directement d'un composant serveur (`page.tsx`) vers `ModerationModal` (composant client) faisaient planter `/marketplace` en 500 — React interdit de sérialiser une fonction (le composant d'icône) à travers la frontière Server→Client Component. Corrigé en passant des éléments déjà rendus (`<Trash2 size={13} />`) plutôt que les composants eux-mêmes.
+
+**Un deuxième problème réel trouvé en testant, distinct d'un bug de code : `e2e-fixture@psychoeduc-manager.local` (compte utilisé par `dashboard.spec.ts` depuis le début du projet) n'a jamais eu le rôle `fondateur`, seulement `administrateur`.** Aucun test E2E existant n'avait jamais vérifié une action réservée au Fondateur avec un vrai compte fondateur. Nouveau compte de test dédié créé : `e2e-fondateur-fixture@psychoeduc-manager.local` (rôle `fondateur` réel, actif), suivant exactement le pattern déjà établi pour les fixtures Solo/Employeur (`auth.identities` + tokens `''`).
+
+**Vérification** : `tests/e2e/marketplace-moderation.spec.ts` (parcours Détail→Valider→Suspendre→Supprimer avec le vrai compte fondateur, + vérification qu'un compte Solo ne voit jamais le bouton Valider) et `tests/e2e/marketplace-messagerie.spec.ts` (Fondateur envoie un message → vendeur reçoit + répond), `supabase/tests/test_moderation_marketplace.sql` (cloisonnement RLS + `log_audit_action`). `playwright.config.ts` : `expect.timeout` porté à 15s (latence significative constatée sur ce projet Supabase distant partagé, confirmée réelle par vérification directe en base — pas un défaut applicatif).
+
+## 2026-07-06 (soir) — Clôture `PLAN_MODERATION_MARKETPLACE.md` : un vrai bug de test trouvé et corrigé, aucun bug applicatif
+
+En reprenant ce plan pour le terminer, `tests/e2e/marketplace-messagerie.spec.ts` échouait de façon intermittente (environ 1 run sur 2) quand il s'exécutait juste après `marketplace-moderation.spec.ts`, jamais en isolation. Diagnostiqué par simulation directe de l'insert/RLS via `supabase db query --linked` (l'écriture en base fonctionne à 100% quand rejouée manuellement avec les mêmes claims JWT) puis par instrumentation temporaire de l'action (retournée en erreur forcée) : la cause n'était **pas** applicative.
+
+**Cause réelle : l'assertion du test elle-même était un faux positif.** `MessageThread.tsx` ne vide le `<textarea>` (`setContenu('')`) que sur le chemin de succès de l'action — en cas d'échec, le texte tapé reste affiché. Le test vérifiait la réussite de l'envoi avec `page.getByText(messageFondateur)` **page entière**, juste après le clic sur "Envoyer" : cette assertion matchait le contenu encore présent dans le textarea, que l'envoi ait réellement réussi ou non, masquant ainsi un vrai échec d'envoi silencieux une fois sur deux. Corrigé en attendant que le bouton revienne à l'état "Envoyer" (`enCours=false`) puis en scopant la vérification à la liste réelle des messages rendus (`ul li p`), jamais au textarea.
+
+**Second symptôme observé sous cette même page dense (beaucoup d'offres de test accumulées) : le bouton "Envoyer" restait parfois `disabled` après un `page.fill()` sur le textarea**, le DOM ne se synchronisant pas avec l'état React contrôlé dans la même passe. Corrigé par un pattern retry (`expect(async () => { fill(); expect(bouton).toBeEnabled() }).toPass()`) plutôt qu'un remplissage unique fragile — pattern désormais disponible pour tout futur test sur une page à fort volume de données.
+
+**Vérification** : 2 runs consécutifs de `marketplace-moderation.spec.ts` + `marketplace-messagerie.spec.ts` ensemble, tous verts (45s et 1.0m, contre plusieurs minutes de timeout avant correctif) ; `tsc --noEmit` propre ; suite Playwright complète rejouée pour non-régression.
+
 ## 2026-07-07 — Publication auto des formations + badge de vérification : ÉTAPE 3/3 (UI), validée par Angenor ("continue")
 
 Dernière étape de la fonctionnalité demandée en 3 étapes séparées avec validation entre chacune. Couvre : badge, page détail formation, profil public formateur + contact, enrichissement de `/solo/profil`.

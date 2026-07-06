@@ -27,9 +27,35 @@
   --color-text-primary: var(--text-primary);
   --color-text-muted: var(--text-muted);
   --color-danger: var(--danger);
+  --color-status-ok: var(--status-ok);
+  --color-status-ok-bg: var(--status-ok-bg);
+  --color-status-warn: var(--status-warn);
+  --color-status-warn-bg: var(--status-warn-bg);
   --font-display: var(--font-fraunces);
   --font-sans: var(--font-inter);
   --font-data: var(--font-plex-mono);
+}
+
+/* Palette premium "Boussole d'autonomie" — scope Cockpit Fondateur uniquement.
+   Redéclare les tokens du design system pour ne pas affecter /solo, /employeur, /login
+   qui partagent les mêmes variables globales ci-dessus. */
+.cockpit-fondateur {
+  --bg-base: #081020;
+  --bg-surface: #0a1523;
+  --bg-card: #0d1a2b;
+  --border-soft: #1e2c40;
+  --accent-teal: #4fd1a5;
+  --danger: #f0736a;
+  --text-primary: #ffffff;
+  --text-muted: #c9d2e2;
+
+  --status-ok: #4fd1a5;
+  --status-ok-bg: #163a30;
+  --status-warn: #e8b95c;
+  --status-warn-bg: #2e2211;
+
+  --alert-bg: #1f1509;
+  --alert-border: #3a2a12;
 }
 
 body {
@@ -56,7 +82,7 @@ h1, h2, h3, .font-display {
   color: var(--text-primary);
 }
 
-/* halo teal organique, un seul, discret */
+/* halo teal organique, discret */
 .ambient-halo {
   position: fixed;
   top: -200px;
@@ -66,6 +92,20 @@ h1, h2, h3, .font-display {
   background: radial-gradient(circle, var(--accent-teal) 0%, transparent 70%);
   opacity: 0.08;
   filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* second halo, brun chaud, opposé au premier — Cockpit Fondateur uniquement */
+.ambient-halo-warm {
+  position: fixed;
+  bottom: -220px;
+  left: -220px;
+  width: 620px;
+  height: 620px;
+  background: radial-gradient(circle, var(--alert-border) 0%, transparent 70%);
+  opacity: 0.07;
+  filter: blur(70px);
   pointer-events: none;
   z-index: 0;
 }

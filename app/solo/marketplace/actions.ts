@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSoloOrganisation } from '../_lib/getSoloOrg'
 import { extraireChampsOffre, supprimerOffreAvecGarde } from '@/lib/marketplaceOffres'
+import { repondreMessageOffre } from '@/lib/marketplaceMessages'
 
 export async function creerOffre(formData: FormData): Promise<void> {
   const organisation = await getSoloOrganisation()
@@ -59,6 +60,12 @@ export async function sAchterOffre(offreId: string, montant: number, organisatio
   })
 
   revalidatePath('/solo/marketplace')
+}
+
+export async function repondreMessageModeration(offreId: string, contenu: string): Promise<{ error: string | null }> {
+  const res = await repondreMessageOffre(offreId, contenu)
+  if (!res.error) revalidatePath('/solo/marketplace')
+  return res
 }
 
 export async function basculerFavori(offreType: 'formation' | 'marketplace_offre', offreId: string): Promise<void> {

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getEmployeurOrganisation } from './_lib/getEmployeurOrg'
 import { extraireChampsOffre, supprimerOffreAvecGarde } from '@/lib/marketplaceOffres'
+import { repondreMessageOffre } from '@/lib/marketplaceMessages'
 
 export async function creerOffreEmployeur(formData: FormData): Promise<void> {
   const organisation = await getEmployeurOrganisation()
@@ -40,6 +41,12 @@ export async function retirerOffreEmployeur(offreId: string): Promise<void> {
 
 export async function supprimerOffreEmployeur(offreId: string): Promise<{ error: string | null }> {
   const res = await supprimerOffreAvecGarde(offreId)
+  if (!res.error) revalidatePath('/employeur')
+  return res
+}
+
+export async function repondreMessageModerationEmployeur(offreId: string, contenu: string): Promise<{ error: string | null }> {
+  const res = await repondreMessageOffre(offreId, contenu)
   if (!res.error) revalidatePath('/employeur')
   return res
 }

@@ -80,8 +80,8 @@ export function StatCard({
 }
 
 const STATUS_STYLES: Record<'ok' | 'warn' | 'down' | 'idle', string> = {
-  ok: 'bg-accent-teal-dim text-[#bff2ec]',
-  warn: 'bg-accent-gold-dim/50 text-accent-gold',
+  ok: 'bg-status-ok-bg text-status-ok',
+  warn: 'bg-status-warn-bg text-status-warn',
   down: 'bg-danger/20 text-danger',
   idle: 'bg-bg-surface text-text-muted border border-border-soft',
 }

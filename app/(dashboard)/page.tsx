@@ -118,13 +118,23 @@ export default async function Home() {
         </Panel>
 
         <Panel title="Alertes prioritaires" icon={Siren}>
-          <ul>
-            {alertes.map((a) => (
-              <li key={a.label} className="flex items-center justify-between text-[13.5px] py-[11px] border-b border-border-soft last:border-0">
-                <span className="text-text-muted">{a.label}</span>
-                <span className="font-data font-semibold text-text-muted">{a.total}</span>
-              </li>
-            ))}
+          <ul className="space-y-1">
+            {alertes.map((a) => {
+              const active = a.total > 0
+              return (
+                <li
+                  key={a.label}
+                  className={`flex items-center justify-between text-[13.5px] px-3 py-[11px] rounded-lg ${
+                    active
+                      ? 'bg-[var(--alert-bg)] border border-[var(--alert-border)]'
+                      : 'border-b border-border-soft last:border-0 rounded-none px-0'
+                  }`}
+                >
+                  <span className="text-text-muted">{a.label}</span>
+                  <span className="font-data font-semibold text-text-muted">{a.total}</span>
+                </li>
+              )
+            })}
           </ul>
         </Panel>
       </div>
