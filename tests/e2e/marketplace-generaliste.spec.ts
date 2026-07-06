@@ -32,6 +32,39 @@ test('un compte Solo peut soumettre une offre produit (en attente de validation)
   expect(erreursConsole, `Erreurs JS inattendues: ${erreursConsole.join('\n')}`).toEqual([])
 })
 
+test('un compte Solo peut modifier puis supprimer définitivement une offre marketplace', async ({ page }) => {
+  await page.goto('/login')
+  await page.fill('#email', SOLO_EMAIL)
+  await page.fill('#password', SOLO_PASSWORD)
+  await page.click('button[type="submit"]')
+  await expect(page).toHaveURL('http://localhost:3000/')
+
+  await page.goto('/solo/marketplace')
+  const titre = `Produit E2E Edit ${Date.now()}`
+  await page.selectOption('select[name="type_offre"]', 'produit')
+  await page.fill('input[name="titre"]', titre)
+  await page.click('button:has-text("Soumettre pour validation")')
+  await page.waitForLoadState('networkidle')
+
+  const carte = page.locator('div.py-3').filter({ hasText: titre })
+  await expect(carte).toBeVisible()
+  await carte.getByRole('link', { name: 'Modifier' }).click()
+  await expect(page.getByText(`Modifier « ${titre} »`)).toBeVisible()
+
+  const titreModifie = `${titre} (modifiée)`
+  await page.fill('input[name="titre"]', titreModifie)
+  await page.click('button:has-text("Enregistrer les modifications")')
+  await page.waitForLoadState('networkidle')
+
+  const carteModifiee = page.locator('div.py-3').filter({ hasText: titreModifie })
+  await expect(carteModifiee).toBeVisible()
+
+  await carteModifiee.getByRole('button', { name: 'Supprimer' }).click()
+  await page.click('button:has-text("Supprimer définitivement")')
+  await page.waitForLoadState('networkidle')
+  await expect(page.locator('div.py-3').filter({ hasText: titreModifie })).toHaveCount(0)
+})
+
 test('le filtre par type sur la marketplace publique fonctionne sans erreur JS', async ({ page }) => {
   const erreursConsole: string[] = []
   page.on('pageerror', (err) => erreursConsole.push(err.message))

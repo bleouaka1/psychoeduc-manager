@@ -1,4 +1,4 @@
-import { IdCard, Star, Users, CalendarClock } from 'lucide-react'
+import { IdCard, Star, Users, CalendarClock, ShoppingBag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatCard } from '../../(dashboard)/_components/ui'
 import { getSoloOrganisation, getIsFondateur } from '../_lib/getSoloOrg'
@@ -11,19 +11,28 @@ export default async function SoloProfilPage() {
   const isFondateur = await getIsFondateur()
   const supabase = await createClient()
 
-  const [{ data: formationsPubliees }, { data: profilPublic }, { data: organisationInfo }] = await Promise.all([
+  const [{ data: formationsPubliees }, { data: profilPublic }, { data: organisationInfo }, { data: satisfaction }] = await Promise.all([
     supabase.from('formations').select('id, titre, prix, devise, duree_texte, mode_transmission').eq('organisation_id', organisation.id).eq('statut', 'publiee'),
     supabase.from('profils_publics_formateurs').select('bio, specialites').eq('organisation_id', organisation.id).maybeSingle(),
     supabase.from('organisations').select('created_at').eq('id', organisation.id).single(),
+    // Agrège les avis des formations ET des offres produit/service — un vendeur qui ne
+    // vend que des offres marketplace ne doit pas apparaître "sans note" par oubli.
+    supabase.from('vue_satisfaction_vendeur').select('note_moyenne, nombre_avis').eq('organisation_id', organisation.id).maybeSingle(),
+  ])
+
+  const [{ count: beneficiairesAccompagnes }, { data: offresOrg }] = await Promise.all([
+    supabase.from('beneficiaires').select('id', { count: 'exact', head: true }).eq('organisation_id', organisation.id),
+    supabase.from('marketplace_offres').select('id').eq('organisation_id', organisation.id),
   ])
 
   const formationIds = (formationsPubliees ?? []).map((f: any) => f.id)
-  const [{ data: notes }, { count: beneficiairesAccompagnes }] = await Promise.all([
-    formationIds.length > 0 ? supabase.from('avis_formations').select('note').in('formation_id', formationIds) : Promise.resolve({ data: [] as any[] }),
-    supabase.from('beneficiaires').select('id', { count: 'exact', head: true }).eq('organisation_id', organisation.id),
+  const offreIds = (offresOrg ?? []).map((o: any) => o.id)
+  const [{ data: acheteursFormations }, { data: acheteursOffres }] = await Promise.all([
+    formationIds.length > 0 ? supabase.from('inscriptions_formations').select('acheteur_id').in('formation_id', formationIds) : Promise.resolve({ data: [] as any[] }),
+    offreIds.length > 0 ? supabase.from('marketplace_commandes').select('acheteur_id').in('offre_id', offreIds) : Promise.resolve({ data: [] as any[] }),
   ])
+  const clientsMarketplace = new Set([...(acheteursFormations ?? []).map((a: any) => a.acheteur_id), ...(acheteursOffres ?? []).map((a: any) => a.acheteur_id)]).size
 
-  const noteMoyenneGlobale = notes && notes.length > 0 ? (notes.reduce((a: number, n: any) => a + n.note, 0) / notes.length).toFixed(1) : null
   const ancienneteJours = organisationInfo ? Math.floor((Date.now() - new Date(organisationInfo.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
 
   return (
@@ -59,9 +68,10 @@ export default async function SoloProfilPage() {
         </div>
       </Panel>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
-        <StatCard icon={Star} label="Note moyenne globale" value={noteMoyenneGlobale ?? '—'} hint={`${notes?.length ?? 0} avis reçus`} />
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-5 mb-6">
+        <StatCard icon={Star} label="Note de satisfaction" value={satisfaction?.note_moyenne ?? '—'} hint={satisfaction?.nombre_avis ? `${satisfaction.nombre_avis} avis reçus` : 'Aucun avis reçu'} />
         <StatCard icon={Users} label="Bénéficiaires accompagnés" value={beneficiairesAccompagnes ?? 0} />
+        <StatCard icon={ShoppingBag} label="Clients marketplace" value={clientsMarketplace} hint="Formations + offres achetées" />
         <StatCard icon={CalendarClock} label="Ancienneté" value={`${ancienneteJours} j`} hint="Depuis la création de cet espace" />
       </div>
 

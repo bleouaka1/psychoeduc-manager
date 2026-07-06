@@ -1,34 +1,22 @@
 import Link from 'next/link'
-import { Store, Star, ShoppingBag, GraduationCap, Package, Plus } from 'lucide-react'
+import { Store, Star, ShoppingBag, GraduationCap, Package } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { PageHeader, Panel, StatusPill } from '../../(dashboard)/_components/ui'
+import { PageHeader, Panel } from '../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../_lib/getSoloOrg'
 import { sInscrireFormation } from '../marketplace-actions'
-import { sAchterOffre, creerOffre, retirerOffre } from './actions'
+import { sAchterOffre, creerOffre, modifierOffre, retirerOffre, supprimerOffre } from './actions'
 import { FavoriToggle } from '../_components/FavoriToggle'
+import { OffreForm } from '../../_components/OffreForm'
+import { OffresListe } from '../../_components/OffresListe'
 
 const VENDEUR_LABEL: Record<string, string> = { solo: 'Indépendant', structure: 'Structure', employeur: 'Entreprise' }
-const STATUT_LABEL: Record<string, string> = {
-  en_attente_validation: 'En attente de validation',
-  publiee: 'Publiée',
-  refusee: 'Refusée',
-  masquee: 'Masquée',
-  retiree: 'Retirée',
-}
-const STATUT_PILL: Record<string, 'ok' | 'warn' | 'down' | 'idle'> = {
-  en_attente_validation: 'warn',
-  publiee: 'ok',
-  refusee: 'down',
-  masquee: 'down',
-  retiree: 'idle',
-}
 
 export default async function MarketplacePubliquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; vendeur?: string; q?: string }>
+  searchParams: Promise<{ type?: string; vendeur?: string; q?: string; edit?: string }>
 }) {
-  const { type = 'tout', vendeur = 'tout', q = '' } = await searchParams
+  const { type = 'tout', vendeur = 'tout', q = '', edit: editId } = await searchParams
   const organisation = await getSoloOrganisation()
   if (!organisation) return null
 
@@ -56,9 +44,11 @@ export default async function MarketplacePubliquePage({
 
   const { data: mesOffres } = await supabase
     .from('marketplace_offres')
-    .select('id, titre, type_offre, prix, statut, image_couverture_url')
+    .select('id, titre, type_offre, description, prix, statut, image_couverture_url, stock_disponible, modalites_livraison, duree_texte, mode_transmission')
     .eq('organisation_id', organisation.id)
     .order('created_at', { ascending: false })
+
+  const offreEnEdition = editId ? (mesOffres ?? []).find((o: any) => o.id === editId) : null
 
   const onglets = [
     { valeur: 'tout', label: 'Tout' },
@@ -119,6 +109,7 @@ export default async function MarketplacePubliquePage({
             {(offres ?? []).map((o: any) => {
               const offreType: 'formation' | 'marketplace_offre' = o.type_offre === 'formation' ? 'formation' : 'marketplace_offre'
               const estFavori = favorisSet.has(`${offreType}:${o.id}`)
+              const nouveauVendeur = o.organisation_created_at && Date.now() - new Date(o.organisation_created_at).getTime() < 30 * 24 * 60 * 60 * 1000
               return (
                 <div key={`${offreType}-${o.id}`} className="bg-bg-surface border border-border-soft rounded-xl overflow-hidden flex flex-col">
                   <div className="h-32 bg-bg-card flex items-center justify-center">
@@ -143,6 +134,9 @@ export default async function MarketplacePubliquePage({
                       <span className="bg-bg-card border border-border-soft px-1.5 py-0.5 rounded-full text-[9.5px]">{VENDEUR_LABEL[o.type_organisation] ?? o.type_organisation}</span>
                       {o.vendeur_est_fondateur && (
                         <span className="bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base text-[9px] font-bold px-1.5 py-0.5 rounded-full">FONDATEUR</span>
+                      )}
+                      {nouveauVendeur && (
+                        <span className="bg-accent-teal-dim text-[#bff2ec] text-[9px] font-bold px-1.5 py-0.5 rounded-full">NOUVEAU VENDEUR</span>
                       )}
                     </p>
                     {o.description && <p className="text-text-muted text-xs line-clamp-2">{o.description}</p>}
@@ -178,75 +172,15 @@ export default async function MarketplacePubliquePage({
         )}
       </Panel>
 
-      <Panel title="Publier une offre (produit ou service)" className="mb-6">
-        <form action={creerOffre} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Type d'offre</label>
-            <select name="type_offre" required className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary">
-              <option value="produit">Produit physique</option>
-              <option value="service">Service</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Titre</label>
-            <input name="titre" required className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="text-text-muted text-xs mb-1 block">Description</label>
-            <textarea name="description" rows={2} className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim" />
-          </div>
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Prix (FCFA)</label>
-            <input name="prix" type="number" min="0" className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim" />
-          </div>
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Image de couverture (URL — obligatoire avant publication)</label>
-            <input name="image_couverture_url" type="url" className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim" />
-          </div>
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Stock disponible (produit uniquement)</label>
-            <input name="stock_disponible" type="number" min="0" className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim" />
-          </div>
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Modalités de livraison (produit, optionnel)</label>
-            <input name="modalites_livraison" className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim" />
-          </div>
-          <div className="flex items-end">
-            <button type="submit" className="flex items-center gap-1.5 bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base font-semibold text-[13px] px-4 py-2 rounded-full">
-              <Plus size={14} /> Soumettre pour validation
-            </button>
-          </div>
-        </form>
+      <Panel title={offreEnEdition ? `Modifier « ${offreEnEdition.titre} »` : 'Publier une offre (produit ou service)'} className="mb-6">
+        <OffreForm action={offreEnEdition ? modifierOffre.bind(null, offreEnEdition.id) : creerOffre} offre={offreEnEdition ?? undefined} hrefAnnuler="/solo/marketplace" />
         <p className="text-text-muted text-[11.5px] mt-3">
           Toute nouvelle offre passe par une validation du Fondateur avant publication (protection contre les annonces frauduleuses), et nécessite une image de couverture.
         </p>
       </Panel>
 
       <Panel title="Mes offres (produit/service)">
-        {(mesOffres ?? []).length === 0 ? (
-          <p className="text-text-muted text-sm py-4 text-center">Aucune offre publiée pour le moment.</p>
-        ) : (
-          <div className="divide-y divide-border-soft">
-            {(mesOffres ?? []).map((o: any) => (
-              <div key={o.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-text-primary text-[13px]">{o.titre}</p>
-                  <p className="text-text-muted text-[11px]">{o.type_offre} — {o.prix != null ? `${o.prix} FCFA` : '—'}</p>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <StatusPill status={STATUT_PILL[o.statut] ?? 'idle'}>{STATUT_LABEL[o.statut] ?? o.statut}</StatusPill>
-                  {o.statut !== 'retiree' && (
-                    <form action={retirerOffre.bind(null, o.id)}>
-                      <button type="submit" className="text-[11.5px] text-danger border border-danger/40 rounded-full px-3 py-1">
-                        Retirer
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <OffresListe offres={mesOffres ?? []} editHrefBase="/solo/marketplace" retirerAction={retirerOffre} supprimerAction={supprimerOffre} />
       </Panel>
     </>
   )

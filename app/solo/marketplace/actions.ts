@@ -3,43 +3,31 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSoloOrganisation } from '../_lib/getSoloOrg'
+import { extraireChampsOffre, supprimerOffreAvecGarde } from '@/lib/marketplaceOffres'
 
 export async function creerOffre(formData: FormData): Promise<void> {
   const organisation = await getSoloOrganisation()
   if (!organisation) return
 
-  const titre = String(formData.get('titre') ?? '').trim()
-  const type_offre = String(formData.get('type_offre') ?? '')
-  const description = String(formData.get('description') ?? '').trim()
-  const prixRaw = String(formData.get('prix') ?? '').trim()
-  const prix = prixRaw ? Number(prixRaw) : null
-  const image_couverture_url = String(formData.get('image_couverture_url') ?? '').trim() || null
-  const stockRaw = String(formData.get('stock_disponible') ?? '').trim()
-  const stock_disponible = stockRaw ? Number(stockRaw) : null
-  const modalites_livraison = String(formData.get('modalites_livraison') ?? '').trim() || null
-  const duree_texte = String(formData.get('duree_texte') ?? '').trim() || null
-  const mode_transmission = String(formData.get('mode_transmission') ?? '') || null
-
-  if (!titre || (type_offre !== 'produit' && type_offre !== 'service')) return
+  const champs = extraireChampsOffre(formData)
+  if (!champs) return
 
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  await supabase.from('marketplace_offres').insert({
-    organisation_id: organisation.id,
-    type_offre,
-    titre,
-    description: description || null,
-    prix,
-    image_couverture_url,
-    stock_disponible: type_offre === 'produit' ? stock_disponible : null,
-    modalites_livraison: type_offre === 'produit' ? modalites_livraison : null,
-    duree_texte: type_offre === 'service' ? duree_texte : null,
-    mode_transmission: type_offre === 'service' ? mode_transmission : null,
-    created_by: user?.id,
-  })
+  await supabase.from('marketplace_offres').insert({ organisation_id: organisation.id, created_by: user?.id, ...champs })
+
+  revalidatePath('/solo/marketplace')
+}
+
+export async function modifierOffre(offreId: string, formData: FormData): Promise<void> {
+  const champs = extraireChampsOffre(formData)
+  if (!champs) return
+
+  const supabase = await createClient()
+  await supabase.from('marketplace_offres').update(champs).eq('id', offreId)
 
   revalidatePath('/solo/marketplace')
 }
@@ -48,6 +36,12 @@ export async function retirerOffre(offreId: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('marketplace_offres').update({ statut: 'retiree' }).eq('id', offreId)
   revalidatePath('/solo/marketplace')
+}
+
+export async function supprimerOffre(offreId: string): Promise<{ error: string | null }> {
+  const res = await supprimerOffreAvecGarde(offreId)
+  if (!res.error) revalidatePath('/solo/marketplace')
+  return res
 }
 
 export async function sAchterOffre(offreId: string, montant: number, organisationId: string): Promise<void> {
