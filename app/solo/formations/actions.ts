@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSoloOrganisation } from '../_lib/getSoloOrg'
+import { publierFormationSurMarketplace } from '@/lib/marketplaceAutoPublish'
 
 // Ces actions sont branchées directement sur `<form action={...}>` (pas de useActionState
 // dans ce composant serveur) : React 19 exige qu'une action de formulaire retourne void.
@@ -26,18 +27,30 @@ export async function creerFormation(formData: FormData): Promise<void> {
 
   if (!titre) return
 
-  await supabase.from('formations').insert({
-    organisation_id: organisation.id,
-    titre,
-    description: description || null,
-    duree_texte: duree_texte || null,
-    mode_transmission,
-    prix,
-    statut: 'brouillon',
-    created_by: user?.id,
-  })
+  const { data: formationCreee } = await supabase
+    .from('formations')
+    .insert({
+      organisation_id: organisation.id,
+      titre,
+      description: description || null,
+      duree_texte: duree_texte || null,
+      mode_transmission,
+      prix,
+      statut: 'brouillon',
+      created_by: user?.id,
+    })
+    .select('id, organisation_id, titre, description, prix, devise, duree_texte, mode_transmission, image_couverture_url, video_url')
+    .single()
+
+  // Publication automatique sur la Marketplace (visible_en_verification, en attente
+  // de vérification a posteriori par le Fondateur) — indépendante du statut interne
+  // "brouillon" de la formation elle-même, conformément à la consigne.
+  if (formationCreee) {
+    await publierFormationSurMarketplace(supabase, formationCreee, organisation.type_organisation, user?.id)
+  }
 
   revalidatePath('/solo/formations')
+  revalidatePath('/solo/marketplace')
 }
 
 async function changerStatut(formationId: string, statut: 'publiee' | 'suspendue' | 'archivee' | 'brouillon'): Promise<void> {
