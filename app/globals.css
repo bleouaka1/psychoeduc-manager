@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Design system "Boussole d'autonomie" */
+  --bg-base: #0d1420;
+  --bg-surface: #141d2b;
+  --bg-card: #1a2536;
+  --border-soft: #26334a;
+  --accent-gold: #d4a24e;
+  --accent-gold-dim: #8a6b34;
+  --accent-teal: #3fbfb0;
+  --accent-teal-dim: #1f6e66;
+  --text-primary: #f3efe6;
+  --text-muted: #8b96a8;
+  --danger: #e2725b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-card: var(--bg-card);
+  --color-border-soft: var(--border-soft);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-gold-dim: var(--accent-gold-dim);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-teal-dim: var(--accent-teal-dim);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-danger: var(--danger);
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+  --font-data: var(--font-plex-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  position: relative;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+.font-data {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--accent-gold-dim);
+  color: var(--text-primary);
+}
+
+/* halo teal organique, un seul, discret */
+.ambient-halo {
+  position: fixed;
+  top: -200px;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--accent-teal) 0%, transparent 70%);
+  opacity: 0.08;
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* scrollbar fine, thème sombre */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-gold-dim); }
+
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-soft) transparent;
+}
+
+/* Rapport de bilan exportable = impression navigateur, pas de librairie PDF ajoutée
+   pour ce seul besoin. On repasse en clair pour l'impression (thème sombre = gaspillage d'encre). */
+@media print {
+  .ambient-halo {
+    display: none;
+  }
+  body {
+    background: #ffffff;
+    color: #1a1a1a;
+  }
+  .bg-bg-base, .bg-bg-surface, .bg-bg-card {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+  }
+  .border-border-soft {
+    border-color: #d8d8d8 !important;
+  }
+  .text-text-primary {
+    color: #1a1a1a !important;
+  }
+  .text-text-muted {
+    color: #555555 !important;
+  }
 }

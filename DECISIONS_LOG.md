@@ -1,0 +1,338 @@
+# Journal des décisions structurantes — PsychoÉduc Manager
+
+Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
+
+## 2026-07-07 (nuit) — Marketplace généraliste + gestion des bénéficiaires (session en mode autonome complet)
+
+Session menée sous `PROMPT-MODE-AUTONOME.md` (autorité de décision complète, sans validation intermédiaire). Détail complet, hypothèses et points explicitement en attente de l'avis d'Angenor : voir `JOURNAL-AUTONOMIE.md` à la racine du projet — ce fichier-ci ne reprend que les décisions structurantes elles-mêmes.
+
+**Découverte et décision la plus importante de la nuit : `marketplace_offres` (table générique produit/service/formation avec modération Fondateur) existait déjà depuis l'Étape 16 de l'architecture v5 d'origine, mais n'était utilisée par aucune UI d'insertion.** La session précédente (Phase B, Compte Solo) avait construit un système de marketplace entièrement séparé autour de `formations`/`inscriptions_formations` sans connaissance de cette table. Plutôt que fusionner les deux (migration de données réelles + réécriture du module Compte Solo formations, déjà vivant et testé, en pleine nuit sans confirmation — exactement le type d'opération que le mode autonome demande de signaler plutôt que d'exécuter), décision : `marketplace_offres` devient le support des offres non pédagogiques (produit/service, aucune donnée existante à casser), unifié avec `formations` uniquement en lecture via la vue `vue_marketplace_publique`. Chaque source garde ses règles déjà en place : formations = auto-publication par le formateur (comme aujourd'hui, revenu 100% au vendeur) ; produit/service = modération Fondateur obligatoire + image de couverture requise avant publication (comme le prévoyait déjà le trigger `enforce_marketplace_offre_statut` de l'Étape 16, désormais étendu pour vérifier l'image). Explicitement laissé à l'arbitrage d'Angenor : faut-il un jour aligner le modèle économique des formations sur celui de `marketplace_offres` (commission, modération) ?
+
+**Avis vérifiés généralisés à `marketplace_avis` : un vrai trou de confiance corrigé.** `marketplace_avis_insert` (Étape 16) n'exigeait aucune preuve d'achat — n'importe quel utilisateur authentifié pouvait noter n'importe quelle offre. Corrigé pour exiger une `marketplace_commandes` confirmée sur la même offre, exactement le même principe que `avis_formations` (Phase C, session précédente). Les deux systèmes d'avis appliquent maintenant la même garantie "achat vérifié", chacun sur sa propre table.
+
+**Deuxième trou de permission réel de la même famille que celui de la session précédente (`formations`) : `administrateur` avait aussi `peut_supprimer=false` sur `beneficiaires`.** Même corrections que pour `formations` : policy RLS additionnelle scopée aux organisations `type_organisation='solo'` (`beneficiaires_delete_solo`), sans toucher à la restriction structure/employeur. Motif structurel identifié : les seeds de permissions de l'architecture v5 mettent systématiquement `peut_supprimer=false` pour `administrateur` sur les modules à historique sensible — une hypothèse de gouvernance multi-intervenants qui ne tient pas pour un Compte Solo mono-utilisateur. À vérifier proactivement pour tout futur module Compte Solo ajoutant une suppression.
+
+**"Demande d'inscription" modélisée comme un statut supplémentaire de `beneficiaires` (`en_attente`/`refuse`), pas comme une nouvelle table ni un formulaire public non authentifié.** Aucun canal d'auto-inscription externe n'existe dans l'app à ce jour (les bénéficiaires n'ont pas de portail de signup) ; en créer un aurait été une décision structurante non demandée explicitement par `PROMPT-GESTION-BENEFICIAIRES.md` (qui parle de "file d'attente" sans préciser le canal de soumission). Interprétation retenue : le champ "Soumettre comme demande" sur le formulaire d'ajout existant simule le cas où quelqu'un (parent, mentor, l'utilisateur lui-même) signale un bénéficiaire à valider avant de le rendre actif — cohérent avec "Créer/Valider/Suspendre" déjà utilisé ailleurs dans le projet pour les comptes.
+
+**`archive` ajouté comme statut distinct de `sorti` sur `beneficiaires`.** `sorti` a un sens métier précis (a réellement quitté le programme) ; `archive` est neutre (retiré des listes actives sans jugement sur la situation), l'alternative proposée à la suppression directe. Conserver les deux évite de surcharger `sorti` d'un sens qu'il n'a pas.
+
+**Signalement : policy RLS additionnelle plutôt que modification de la policy existante**, pour ne jamais risquer d'affaiblir la policy `messages_select` déjà en production. `messages_select_beneficiaire` accorde l'accès UNIQUEMENT si `type_message <> 'signalement'` ET que le bénéficiaire ciblé correspond au profil connecté — vérifié explicitement par test SQL (un bénéficiaire connecté avec son propre compte ne voit jamais un signalement le concernant, alors qu'il voit bien un message de suivi qui lui est adressé).
+
+**Revue de sécurité complète (point 3 de `PROMPT-MODE-AUTONOME.md`) effectuée avant de clore la session.** Un problème réel trouvé et corrigé : `app/solo/marketplace/page.tsx` interpolait la recherche libre de l'utilisateur directement dans une chaîne de filtre PostgREST (`.or()`), sans nettoyage — un `,` ou `)` dans la recherche aurait pu détourner le filtre prévu (pas une injection SQL : RLS reste en dessous, mais un contournement de filtre réel). Corrigé en retirant les caractères `,().` de l'entrée avant construction de la chaîne. Aucun autre problème trouvé sur le périmètre touché (grep de secrets, XSS, contrôle d'accès — détail complet dans `JOURNAL-AUTONOMIE.md`).
+
+**Vérification** : 2 nouvelles migrations SQL (`20260708000000_marketplace_generaliste.sql`, `20260709000000_gestion_beneficiaires.sql` + le correctif `20260709010000_beneficiaires_delete_solo.sql`), toutes appliquées via `supabase db query --linked -f` comme les sessions précédentes. 2 nouvelles suites de tests SQL (`test_marketplace_generaliste.sql`, `test_gestion_beneficiaires.sql`) + 2 nouveaux fichiers Playwright (`marketplace-generaliste.spec.ts`, `gestion-beneficiaires.spec.ts`). Suite complète : 16/16 tests Playwright verts, 4/4 suites SQL vertes, `tsc --noEmit` propre, aucune régression sur l'existant.
+
+## 2026-07-07 — Édition/suppression de formation + améliorations complètes du Compte Solo (Phase C)
+
+**Bug de sécurité/fonctionnalité réel détecté et corrigé : un compte Solo ordinaire (rôle `administrateur`) ne pouvait PAS supprimer sa propre formation.** La policy `formations_delete` (Étape 8) exige `peut_supprimer('formations', organisation_id)`, or le seed de permissions donne délibérément `peut_supprimer=false` à `administrateur` sur `formations` — restriction voulue pour empêcher un administrateur de STRUCTURE/EMPLOYEUR de supprimer définitivement une formation partagée par plusieurs éducateurs. Mais le propriétaire réel de tout Compte Solo a précisément ce rôle `administrateur` (pas `fondateur`, réservé à Angenor). Résultat observé pendant le test E2E : le clic sur "Supprimer définitivement" ne renvoyait aucune erreur mais ne supprimait rien (RLS filtre silencieusement les lignes ciblées par un DELETE, 0 ligne affectée, pas d'exception). Plutôt que d'assouplir `peut_supprimer` pour TOUT `administrateur` (ce qui aurait rouvert le risque structure/employeur), décision : une policy RLS additionnelle et permissive, restreinte aux organisations `type_organisation='solo'` (`formations_delete_solo`, migration `20260707010000`). Les policies permissives Postgres s'OR-ent : le comportement structure/employeur est strictement inchangé.
+
+**`router.refresh()` est nécessaire après tout appel imperatif (hors `<form action>`) à une Server Action qui mute des données affichées sur la page courante.** `revalidatePath()` invalide bien le cache serveur, mais seule une soumission de `<form>` déclenche l'actualisation automatique du Router côté client dans ce projet. Un composant client qui appelle une Server Action directement (ex. `ConfirmModal.tsx` sur clic de confirmation) doit appeler `router.refresh()` lui-même après un succès, sinon l'UI reste figée sur l'état obsolète tant qu'aucune navigation ne survient. Bug réel observé et corrigé pendant le test E2E de suppression de formation (le premier essai « fonctionnait » côté serveur — la ligne disparaissait bien en base — mais la page ne s'actualisait jamais).
+
+**Toute Server Action bindée à `<form action={...}>` doit retourner `Promise<void>`, jamais un objet `{error}`.** Découvert via `tsc --noEmit` (le dev server Next ne bloque pas dessus, seul `next build`/`tsc` le fait — plusieurs actions déjà en place depuis la Phase B initiale avaient ce défaut latent, jamais détecté car jamais buildé strictement). Corrigé pour `creerFormation`, `publierFormation/suspendreFormation/archiverFormation`, `modifierFormation`, `sInscrireFormation` : ces formulaires n'affichaient de toute façon aucune erreur à l'utilisateur, donc aucune perte fonctionnelle. `supprimerFormation` garde son retour `{error}` car appelée de façon impérative (pas via `<form>`), ce qui permet d'afficher un vrai message d'erreur dans la modale de confirmation.
+
+**"Compte Solo" n'a pas de portail bénéficiaire — la messagerie directe reste à sens unique (formateur → bénéficiaire) pour cette session.** Construire une vue où le bénéficiaire se connecte et répond serait une nouvelle surface d'authentification/autorisation distincte (décision structurante), hors périmètre des deux prompts fournis (`PROMPT-EDIT-DELETE-FORMATION.md`, `PROMPT-AMELIORATIONS-COMPTE-SOLO-1.md`), qui parlent de suivi et de relation, pas explicitement d'un second portail. Le message est stocké dans la table `messages` existante (Étape 20, déjà dotée de `destinataire_beneficiaire_id`) : le jour où un portail bénéficiaire existera, l'historique sera déjà là, aucune migration de données à prévoir.
+
+**Rappels de séance et relance des inactifs : notification interne uniquement, jamais d'email.** Aucune librairie d'envoi d'email n'existe dans `package.json` à ce jour, et aucune tâche planifiée (cron) n'est configurée sur ce projet. Le rappel de séance est donc calculé paresseusement (`verifier_rappels_seances()`, appelée à chaque ouverture de la page Calendrier) plutôt que par un vrai job planifié — limite assumée et documentée plutôt que de faire semblant avec un faux compte à rebours. La relance d'élève inactif respecte la consigne "jamais envoyé sans validation du formateur" : le message est pré-rempli dans une modale, l'envoi requiert un clic explicite sur "Envoyer" (`RelancerEleve.tsx`).
+
+**Export PDF du rapport de bilan = impression navigateur, aucune librairie PDF ajoutée.** `window.print()` + une feuille de style `@media print` (thème repassé en clair, sidebar/tabs masqués via `print:hidden`) couvrent le besoin "rapport exportable en PDF" sans ajouter de dépendance pour un besoin déjà nativement couvert par tout navigateur — cohérent avec la préférence du projet pour réutiliser l'existant plutôt qu'ajouter une librairie pour un besoin ponctuel.
+
+**Ressources téléchargeables : bucket Supabase Storage privé, jamais d'URL publique statique.** Conforme au principe de minimum de données visibles (les supports pédagogiques ne sont pas des données publiques par défaut). Contrôle d'accès entièrement porté par des policies `storage.objects` scopées par préfixe de chemin (`<formation_id>/<fichier>`), pas par une convention d'URL "secrète". Téléchargement via URL signée (5 min) générée côté serveur au rendu de la page, jamais un lien statique persistant.
+
+**Centre de notifications : aucune nouvelle table.** Réutilise `notifications` (Étape 20, déjà prévue pour ça) alimentée par 3 nouveaux triggers (nouvelle inscription, paiement confirmé, nouvel avis) + une fonction générique `notifier_membres_organisation()` qui notifie tous les membres actifs de l'organisation ciblée (généralise au-delà du seul cas Solo, applicable à une structure à plusieurs employés si besoin plus tard).
+
+**Suite Playwright : `workers: 1` forcé dans `playwright.config.ts`.** La suite complète échouait de façon intermittente (5/12) à 6 workers, systématiquement au moment du login — Supabase Auth applique un rate-limit sur les connexions par mot de passe, et plusieurs comptes de test se connectant en parallèle le déclenchent. Rejoué à 1 worker : 12/12 verts, aucune régression réelle. Documenté pour ne pas ré-investiguer ce faux signal plus tard.
+
+**Vérification** : 2 migrations SQL appliquées directement via `supabase db query --linked -f` (comme les sessions précédentes) ; nouveau script `supabase/tests/test_compte_solo_ameliorations.sql` (correctif de permission administrateur, notifications déclenchées sur inscription/paiement confirmé/avis, cloisonnement objectifs/jalons inter-organisations, rappel de séance non dupliqué) — tout vert. 4 nouveaux tests Playwright permanents (`solo-beneficiaires.spec.ts`, `solo-ameliorations.spec.ts`, extensions de `solo-formations.spec.ts` et `navigation.spec.ts`) ; suite complète 12/12 verte.
+
+## 2026-07-05 — Modules manquants exposés (Phase A) + module Compte Solo (Phase B)
+
+**Phase A — les modules existaient déjà en base, il manquait seulement leur exposition.** Angenor a signalé ne plus voir IGA, Capital social, AGR, Insertion professionnelle, Marketplace, Événements et Intelligence économique dans le tableau de bord après la refonte visuelle. Vérification : les tables/vues correspondantes existaient depuis les 25 étapes de schéma, mais la refonte de sidebar n'avait jamais recréé leurs entrées ni leurs pages. Correction : 7 pages de lecture ajoutées (aucune nouvelle table), sidebar et Centre des modules mis à jour. Aucune décision structurante ici — pur oubli de câblage corrigé.
+
+**Phase B — "Compte Solo" est un gabarit, pas une nouvelle entité de données.** Sur fourniture de 2 nouveaux documents de design (`solo-dashboard-mockup.html`, `CONSIGNES-COMPTE-SOLO.md`), décision confirmée : un compte Solo reste une `organisations` avec `type_organisation='solo'` — pas de table séparée, conforme au principe déjà appliqué à l'Étape 3 (Solo/Structures/Employeurs = un seul modèle filtré par type). Le module `/solo/*` est un **gabarit générique** : il s'applique à n'importe quel compte solo, y compris celui du fondateur lui-même (accessible depuis le Cockpit via "Mon espace Solo"), sans code spécifique au rôle fondateur autre qu'un badge d'affichage.
+
+**Formations étendues plutôt qu'une nouvelle table `formations_solo`.** `formations` (Étape 8) gagne `mode_transmission`, `prix`, `devise`, et le statut `suspendue` — migration additive pure. Une policy `formations_select_publique` (lecture par tous si `statut='publiee'`) transforme le catalogue existant en marketplace sans dupliquer la donnée, conforme au principe "vue plutôt que table dupliquée".
+
+**`paiements_formation` est append-only strict, et volontairement sans aucun prestataire de paiement branché.** Conforme au principe absolu des tables financières (Étape 2). Angenor n'a demandé ni Stripe ni Mobile Money à ce stade — la table enregistre la structure d'un paiement confirmé, mais rien ne peut y insérer de mouvement d'argent réel tant qu'aucune intégration n'est faite. Signalé explicitement dans l'UI (`app/solo/revenus/page.tsx`) pour ne jamais laisser croire à un flux d'argent fonctionnel qui n'existe pas.
+
+**Auto-complétion et certificat par trigger SQL, pas par logique applicative.** `check_completion_formation()` : quand `progression_formation` atteint 100% des `cours` d'une formation pour un acheteur donné, la fonction bascule automatiquement `inscriptions_formations.statut='termine'` et insère une ligne dans `certificats`. Choix : garantit l'intégrité même si un futur endpoint applicatif oublie de le faire — le calcul de complétion est une invariante de données, pas une préférence d'UX. Testé explicitement : progression partielle (1/2 cours) ne déclenche rien ; 2/2 déclenche les deux effets ; vérifié par `supabase/tests/test_compte_solo_formations.sql`.
+
+**Piège Next.js 16 découvert en construisant le module : les route groups `(nom)` ne créent jamais de segment d'URL.** `app/(solo)/page.tsx` et `app/(dashboard)/page.tsx` résolvaient tous deux vers `/`, provoquant une erreur de build ("two parallel pages that resolve to the same path"). Corrigé en renommant le dossier en `app/solo/` (segment réel). Leçon générale pour la suite du projet : un route group sert uniquement à organiser des layouts partagés sans préfixe d'URL (ce qui est exactement l'usage voulu pour `(dashboard)`, qui lui doit rester group), jamais à créer une route nommée.
+
+**Deux nouveaux comptes de test fixtures, non liés au compte réel d'Angenor** : `e2e-solo-fixture@psychoeduc-manager.local` (type `solo`), en plus du `e2e-fixture@...` existant (type `structure`). La leçon `auth.identities` + tokens `''` (documentée plus bas) a été appliquée directement dans l'INSERT de création plutôt qu'en correctif après coup — fonctionnel dès la première tentative de connexion.
+
+**Vérification** : migration + trigger testés par script SQL dédié (5/5), cycle de vie complet des formations (créer → publier → suspendre → archiver) vérifié manuellement au navigateur avec le compte fondateur réel puis figé dans un test Playwright permanent (`tests/e2e/solo-formations.spec.ts`) rejoué avec le compte fixture dédié. Suite complète : 6/6 tests verts, aucune régression sur l'auth, le dashboard ou la navigation existante.
+
+## 2026-07-05 — Refonte visuelle complète : thème sombre "Boussole d'autonomie" (remplace la palette crème/indigo/ochre/sauge)
+
+**Remplacement total du thème** sur consigne explicite d'Angenor (fichiers `DESIGN-SPEC-1.md`, `dashboard-mockup-3.html`, `CONSIGNES-CLAUDE-CODE-1.md`) : palette sombre `bg-base/bg-surface/bg-card` + accents `gold`/`teal`, typographie Fraunces (titres) / Inter (corps) / **IBM Plex Mono (nouveau, pour toute donnée chiffrée : scores, montants, compteurs)**, icônes `lucide-react` remplaçant systématiquement les emoji. Aucune route, aucun appel API, aucune structure de données modifiée — passe de style pure, conforme à la consigne "ne pas changer la logique métier".
+
+**Cadran signature "Boussole d'IGA"** (`IgaDial` dans `ui.tsx`) : le score IGA moyen n'est plus une carte texte mais un anneau SVG dont l'arc se remplit proportionnellement à la valeur/100, `stroke-dasharray`/`stroke-dashoffset` calculés dynamiquement, `—` au centre si aucune évaluation n'existe encore. Remplace la 3ᵁ position du grid de métriques de la Vue générale.
+
+**Sidebar rétractable, fermée par défaut, état persistant sans context ni localStorage.** Le composant `Sidebar` (client, `useState`) vit dans `app/(dashboard)/layout.tsx` — un layout partagé par toutes les pages du groupe de routes. Next.js App Router ne démonte pas les layouts lors d'une navigation client-side entre pages sœurs : l'état ouvert/fermé survit donc naturellement à la navigation, sans mécanisme supplémentaire. Vérifié explicitement par script Playwright (largeur du sidebar identique avant/après un clic sur un lien de navigation).
+
+**Tooltips en mode réduit implémentés en CSS pur** (`group`/`group-hover` Tailwind), pas via l'attribut natif `title` — rendu cohérent avec le thème plutôt que la bulle système du navigateur. Effet de bord détecté et corrigé : le texte du tooltip reste dans le DOM (juste masqué par `opacity-0`), ce qui rendait certains sélecteurs de test ambigus (deux éléments portant le même texte) — corrigé en scopant les assertions de test à `getByRole('main')`.
+
+**Second bug d'hydratation React trouvé et corrigé sur l'écran de connexion** : même cause que le premier (Chrome injecte `caret-color` sur des champs avant l'hydratation), cette fois sur les inputs email/mot de passe plutôt qu'un champ de recherche — lié à la gestion native des mots de passe par le navigateur, pas contournable en changeant le `type`. Corrigé avec `suppressHydrationWarning` sur ces deux inputs précisément (pas un supressHydrationWarning global, qui masquerait de vraies erreurs futures).
+
+**Vérification** : suite Playwright (5 tests) verte, captures d'écran comparées au mockup à trois résolutions (desktop 1440px, tablette 820px), aucun fond blanc résiduel (recherche automatisée de tout emoji restant : 0 résultat), scroll indépendant du sidebar vérifié programmatiquement, persistance d'état vérifiée programmatiquement.
+
+## 2026-07-05 — Refonte visuelle du Cockpit Fondateur (menu latéral riche, palette crème/indigo/ochre/sauge) — **version précédente, remplacée par le thème sombre ci-dessus le jour même**
+
+**Migration vers un `route group` Next.js `(dashboard)`** : `app/(dashboard)/layout.tsx` porte désormais la Sidebar + Topbar partagées par toutes les pages authentifiées, `app/login/` reste en dehors (pas de menu sur l'écran de connexion). Les 14 entrées du menu correspondent chacune à une vraie page avec de vraies requêtes (aucune n'est un lien mort ou une donnée inventée) : Comptes Solo/Structures/Employeurs filtrent `organisations` par `type_organisation` (pas de table séparée, conforme à la règle v5), Bénéficiaires/Modules/Licences/Finances/Communication/Centre IA/Journal d'audit/Support/Paramètres/Statistiques interrogent directement les tables et vues déjà construites pendant les 25 étapes.
+
+**Palette et typographie en tokens Tailwind v4** (`@theme inline` dans `globals.css`), pas de couleurs codées en dur dans les composants — `cream`/`indigo`/`indigo-deep`/`ochre`/`sauge` + variantes, polices Fraunces (titres, `font-display`) et Inter (texte, `font-sans`) chargées via `next/font/google`. Permet de retoucher la palette globalement depuis un seul fichier plus tard.
+
+**"Centre de commandement" et "Alertes prioritaires" alimentés par de vrais signaux, jamais des indicateurs décoratifs inventés** : Base de données = la requête a réussi (si la page s'affiche, elle est connectée) ; Sauvegarde = dernière ligne réelle de `sauvegardes_export` (affiche honnêtement "Aucune enregistrée" tant que l'automatisation de l'Étape 24 n'existe pas) ; les 4 alertes prioritaires sont des comptages réels (tickets support urgents, signalements marketplace en attente, alertes d'assiduité actives, licences expirant sous 30 jours) — pas de placeholders à zéro codés en dur.
+
+**Bug d'hydratation React découvert et corrigé pendant la vérification navigateur** : `<input type="search">` provoquait un avertissement d'hydratation (`caret-color` divergent entre rendu serveur/client, lié au chrome natif du navigateur pour ce type de champ). Corrigé en passant à `type="text"` — comportement identique pour l'utilisateur, plus de divergence de rendu. Détecté uniquement parce que la vérification s'est faite avec un vrai navigateur (Playwright), pas seulement par un statut HTTP 200.
+
+**Test de navigation complet ajouté** (`tests/e2e/navigation.spec.ts`) : visite les 14 pages du menu avec le compte de test, vérifie qu'aucune ne renvoie une erreur HTTP ni une erreur JavaScript — garde-fou contre toute régression future sur une page du menu.
+
+## 2026-07-05 — Authentification frontend + attribution du rôle fondateur (hors périmètre des 25 étapes de schéma, sur demande explicite d'Angenor)
+
+**Stack retenue : `@supabase/ssr` + Server Actions + `proxy.ts`** (pas de librairie d'auth tierce comme NextAuth) — cohérent avec la stack déjà en place (`@supabase/supabase-js`), évite une dépendance supplémentaire pour un besoin déjà couvert par l'écosystème Supabase.
+
+**Next.js 16 a renommé `middleware.ts` en `proxy.ts`** (comportement identique) — vérifié dans `node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md` avant d'écrire le code, conformément à `AGENTS.md`. Le fichier `proxy.ts` (pas `middleware.ts`) rafraîchit la session Supabase à chaque requête et gère les redirections (`/login` si non authentifié, `/` si déjà connecté et sur `/login`).
+
+**Login/logout en Server Actions** (`app/login/actions.ts`), pas de route API séparée — pattern recommandé par la doc Next.js 16 actuelle pour l'App Router, garde la logique d'authentification exécutée côté serveur uniquement.
+
+**Incident technique réel découvert et corrigé pendant la vérification E2E : GoTrue (Supabase Auth) refusait toute connexion par mot de passe avec une erreur générique 500 "Database error querying schema"**, pour deux comptes pourtant créés directement en SQL (pattern déjà utilisé pour les comptes de test des étapes précédentes, mais jamais testé via une vraie tentative de connexion HTTP jusqu'ici). Cause réelle, en deux temps :
+1. Absence de ligne correspondante dans `auth.identities` (GoTrue attend une identité liée au provider `email`, pas seulement la ligne `auth.users`) — corrigé en insérant les lignes `identities` manquantes.
+2. Plusieurs colonnes token de `auth.users` (`confirmation_token`, `recovery_token`, `email_change_token_new`, `email_change`, etc.) étaient `NULL` au lieu de chaîne vide `''` — le code Go de GoTrue échoue au scan d'une valeur NULL sur ces colonnes, ce qui remonte comme une erreur 500 générique et trompeuse plutôt qu'un message clair. Corrigé par `UPDATE ... SET colonne = coalesce(colonne, '')`.
+**Pourquoi ce n'est pas anodin pour la suite** : toute future création de compte via SQL direct (plutôt que via l'API Auth normale) doit systématiquement inclure une ligne `auth.identities` et des colonnes token vides (`''`), jamais `NULL` — sinon la connexion échouera silencieusement avec un message qui ne pointe pas vers la vraie cause. Vérifié par un test de connexion HTTP réel avant de considérer le compte fonctionnel, pas seulement par une insertion SQL réussie.
+
+**Compte fondateur réel créé pour Angenor** (`bleouaka1@gmail.com`), rattaché à une organisation bootstrap "PsychoÉduc Manager — Direction" (type `structure`, faute d'un type "plateforme" dédié dans l'architecture v5), avec les rôles `administrateur` (bootstrap automatique du créateur d'organisation, Étape 1) et `fondateur` (attribution manuelle, accès global) sur cette même adhésion. Mot de passe temporaire généré aléatoirement, transmis à Angenor en message, jamais committé dans le dépôt — à changer dès la première connexion.
+
+**Compte de test E2E dédié** (`e2e-fixture@psychoeduc-manager.local`), sans rôle particulier (juste `administrateur` de sa propre organisation de test), utilisé exclusivement par `tests/e2e/auth.spec.ts` et `tests/e2e/dashboard.spec.ts` — jamais le vrai compte d'Angenor dans un fichier commité, pour ne pas exposer de vrai mot de passe dans le contrôle de version.
+
+## 2026-07-05 — Étape 25 : Paramètres généraux — **les 25 étapes du schéma v5 sont closes**
+
+**Dernière étape.** `parametres_modules`/`parametres_securite`/`parametres_notifications` créées sur le même pattern clé/valeur que `parametres_plateforme` (Étape 16) : lecture ouverte à tout authentifié, écriture réservée au fondateur. Testé.
+
+**Bilan de la nuit** : les 25 étapes de l'architecture v5 (docs/PsychoEduc_Manager_Architecture_v5.md) sont construites, migrées sur le projet Supabase lié, et chacune vérifiée par un test dédié de cloisonnement/sécurité dans `supabase/tests/`. État final : 124 tables, 14 vues, 400 policies RLS, 19 fonctions, 26 fichiers de migration, 25 fichiers de test — 0 donnée résiduelle de test dans la base (chaque test s'exécute dans une transaction et se termine par `ROLLBACK`).
+
+**Ce qui reste explicitement hors périmètre de cette session** (noté, pas oublié) :
+- Authentification frontend (écran de connexion, sessions, middleware de routes protégées) — aucune des 25 étapes ne la couvre, c'est un chantier frontend à part entière.
+- Attribution du rôle `fondateur` à un compte réel (Angenor) — geste manuel ponctuel à faire dès qu'un compte existe.
+- Automatisation nocturne des sauvegardes (pg_cron/scheduler) — tâche d'infrastructure, schéma prêt.
+- Orchestration applicative TypeScript reliant paiements/commandes/contributions à `mouvements_financiers` (calcul de commission, crédit de portefeuille) — logique métier volontairement laissée à l'application, jamais en fonction Postgres imbriquée, conformément au principe absolu de l'architecture.
+- Réconciliation finale `transactions_wallet` (Étape 2) / `mouvements_financiers` (Étape 15) — les deux coexistent sans perte de données, une fusion complète peut être décidée plus tard si souhaitée.
+
+## 2026-07-05 — Étape 24 : Sauvegardes & export hors-ligne
+
+**`chiffree` verrouillée par un `CHECK (chiffree = true)`**, pas seulement une valeur par défaut — rend physiquement impossible d'enregistrer une sauvegarde marquée non chiffrée, y compris pour le rôle postgres. Vérifié par test.
+
+**Pas d'automatisation nocturne réelle construite ce soir.** La planification effective (pg_cron + Edge Function, ou scheduler externe déclenchant la création des lignes `sauvegardes_export`) est une tâche d'infrastructure/ops, hors du périmètre d'une migration de schéma. Le schéma est prêt à recevoir ces lignes une fois l'automatisation mise en place — noté comme reste à faire dans `ETAT_PROJET.md`, pas un blocage de cette session.
+
+## 2026-07-05 — Étape 23 : Statistiques mondiales & dashboards
+
+**Toutes les vues de synthèse sont `security_invoker`, sans RLS supplémentaire.** Elles agrègent des données déjà filtrées par le RLS des tables sous-jacentes — conséquence naturelle et vérifiée par test : le fondateur voit des totaux plateforme (`vue_dashboard_fondateur`), un membre de staff non-fondateur voit, via la **même vue**, un total restreint à sa seule organisation, sans logique de scoping supplémentaire à écrire.
+
+**`vue_dashboard_fondateur` enrichie par `CREATE OR REPLACE VIEW`, colonnes existantes conservées en tête dans le même ordre** (contrainte Postgres : impossible de retirer/réordonner des colonnes de vue existante). Les 6 métriques de "18 light" restent à leur place, 6 nouvelles s'ajoutent à la suite.
+
+**`vue_top100_iga` = alias pur sur `top100_iga`** (déjà construite à l'Étape 9), pour respecter le nom exact attendu par le document sans dupliquer la logique de filtrage.
+
+**`vue_reussites` filtre strictement `statut='confirmee'`**, jamais les propositions système — conforme à la règle explicite "pas de gonflement artificiel des chiffres". Vérifié par test (1 proposée + 1 confirmée en base, la vue n'en retourne qu'1).
+
+**`statistiques_plateforme` : table de snapshots vide, pas de valeur inventée.** Alimentée par une tâche périodique future (cron applicatif), hors du périmètre de cette session — le schéma est prêt, aucune donnée fictive n'y a été insérée.
+
+## 2026-07-05 — Étape 22 : Support
+
+**`faq`/`tutoriels` sans `organisation_id`** : contenu global curaté par le fondateur, identique pour toutes les organisations — le document ne demande pas de personnalisation par structure pour ce module.
+
+## 2026-07-05 — Étape 21 : Centre IA
+
+**Quota IA appliqué par un vrai garde-fou base de données**, pas seulement une vérification côté application. Ajout additif sur `quotas_organisations` (`quota_ia_tokens_mensuel` défaut 100000, `null` = illimité ; `ia_tokens_consommes_mois_courant`). Trigger `BEFORE INSERT` sur `consommations_ia` : rejette physiquement toute insertion qui dépasserait le quota, incrémente le compteur sinon. Vérifié par test : consommation dans la limite acceptée et comptabilisée, consommation dépassant le quota rejetée, compteur inchangé après un rejet. Choisi plutôt qu'une simple vérification applicative car explicitement demandé par le document ("éviter qu'un compte gratuit ne génère une facture d'API incontrôlée") — un contrôle uniquement côté client/application pourrait être contourné ou buggé.
+
+## 2026-07-05 — Étape 20 : Communication / WhatsApp
+
+**`notifications.est_lue` exactement comme prescrit** (jamais `lu`), vérifié explicitement par test (colonne `est_lue` présente, colonne `lu` absente).
+
+**Création de notifications restreinte** (fondateur, soi-même, ou personnel habilité de l'organisation ciblée) plutôt que laissée ouverte à tout authentifié — évite un vecteur de spam trivial, sans impact sur les cas d'usage légitimes.
+
+## 2026-07-05 — Étape 19 : Conformité et consentements
+
+**`donnee_par` en pointeur polymorphe** (`donnee_par_type`/`donnee_par_id`, sans FK stricte) : la personne qui donne le consentement est soit le bénéficiaire majeur (`profiles.id`), soit un parent/tuteur (`parents_tuteurs.id`) — deux tables différentes, même pattern que `affectations_personnel` (Étape 4).
+
+**Révocation self-service limitée au cas bénéficiaire majeur avec compte** (`donnee_par_id = auth.uid()`). Les parents/tuteurs n'ont pas de compte de connexion dans le schéma actuel — leur révocation passe par le personnel habilité, pas de self-service pour l'instant. Testé : le titulaire révoque son propre consentement, un autre bénéficiaire ne peut ni le lire ni le modifier.
+
+## 2026-07-05 — Étape 18 (la vraie) : Réussites
+
+**Proposition automatique implémentée par trigger sur `suivis_post_insertion`**, malgré le principe "logique métier critique en TypeScript" — justifié car c'est une vérification de deux conditions déjà en base (projet de vie validé + maintien ≥ 3 mois), pas un calcul complexe, et le trigger ne fait que **proposer** (`statut='proposee_systeme'`, invisible des stats officielles), jamais confirmer — la décision finale reste humaine. Testé avec 3 scénarios dans la même transaction : cas conforme → proposition déclenchée ; maintien trop récent (30 jours) → rien ; projet de vie non validé malgré 100 jours de maintien → rien.
+
+**Aucune policy INSERT pour les utilisateurs authentifiés** sur `reussites_beneficiaires` — seul le trigger (exécuté avec les privilèges du propriétaire de table) peut y écrire. Cohérent avec la règle : ce n'est jamais un humain qui "propose" une réussite, c'est le système ; un humain ne peut que confirmer ou rejeter (UPDATE).
+
+## 2026-07-05 — Étape 17 : Événements
+
+**Validation conditionnelle selon le créateur** : `createur_type='fondateur'` → `statut='publie'` directement à la création (pas de file d'attente) ; tout autre créateur → `en_attente_validation`, même file que la marketplace. Vérifié par test (2 événements créés dans la même transaction, statuts différents selon le créateur). Réutilisation du taux de commission et du mécanisme de `parametres_plateforme` posés à l'Étape 16, conformément à la demande explicite du document ("même taux et même mécanisme que la marketplace").
+
+**`evenements_inscriptions` append-only**, même pattern que `marketplace_commandes` — une inscription payante est structurellement une commande.
+
+## 2026-07-05 — Étape 16 : Marketplace
+
+**Construction anticipée minimale de `parametres_plateforme`** (normalement Étape 25) : le taux de commission (15%) devait "vivre dans parametres_plateforme, configurable sans redéploiement" dès cette étape, et la même exigence revient à l'Étape 17 (Événements, même taux). Table minimale clé/valeur JSON + fonction `get_parametre_numerique()`, enrichie plus tard sans renommage.
+
+**Statut d'offre forcé par trigger, pas seulement par défaut de colonne.** Un `DEFAULT` de colonne n'empêche pas un client d'envoyer explicitement `statut='publiee'` à la création — testé et confirmé nécessaire : le trigger `enforce_marketplace_offre_statut` force `statut = 'en_attente_validation'` sur tout INSERT, sans exception (même pour le fondateur), conformément à la lettre du document. Seule une transition explicite ultérieure vers `publiee`/`refusee`, réservée au fondateur, est autorisée — vérifié par test (le vendeur ne peut pas s'auto-valider).
+
+**Masquage automatique au seuil de signalements** implémenté par trigger `AFTER INSERT` sur `marketplace_signalements` (incrémente le compteur, bascule `masquee` au seuil). Seuil par défaut = 3, lu depuis `parametres_plateforme` (`seuil_signalements_masquage`, avec repli sur 3 si absent) — ajustable sans migration. Vérifié par test (3 signalements → masquage effectif).
+
+## 2026-07-05 — Correction de numérotation : la v5 compte 25 étapes, pas 21
+
+**Constat** : le skill `psychoeduc-usine` référence "jusqu'à l'étape 21" (hérité de l'ancienne architecture v4.0, 21 étapes). L'architecture v5 réelle (`docs/PsychoEduc_Manager_Architecture_v5.md`) compte en réalité **25 étapes** (sections 3 à 27 du document) : v5 a inséré de nouvelles étapes (Réussites=18, Conformité et consentements=19, Marketplace=16, Événements=17, Sauvegardes=24) qui décalent la numérotation par rapport à v4. Le "23. Statistiques mondiales & dashboards" du document v5 est bien l'étape qui construit `vue_dashboard_fondateur` complet — ce que j'avais appelé "Étape 18 light" plus tôt dans cette session (en suivant l'intitulé littéral du skill `psychoeduc-usine`) était donc en réalité un **aperçu anticipé de l'Étape 23**, pas la vraie Étape 18 (qui est "Réussites", jamais construite jusqu'ici).
+
+**Décision** : poursuivre l'usine avec la numérotation réelle du document v5 (1 à 25), pas la limite de 21 héritée de l'ancienne architecture. Reste à construire dans l'ordre : 16 (Marketplace), 17 (Événements), **18 — Réussites (la vraie, jamais faite)**, 19 (Conformité et consentements), 20 (Communication/WhatsApp), 21 (Centre IA), 22 (Support), 23 (Statistiques mondiales & dashboards — enrichir `vue_dashboard_fondateur` déjà créé), 24 (Sauvegardes & export), 25 (Paramètres généraux).
+**Pourquoi ce n'est pas anodin** : si "Étape 18 light" avait été comptée comme "l'Étape 18 est faite", la vraie Étape 18 (Réussites, qui dépend de `projets_vie.statut='valide'` et `suivis_post_insertion`, toutes deux déjà construites) aurait été sautée par erreur. Cette correction l'évite.
+
+## 2026-07-05 — Étape 14 : Financement participatif
+
+**`wallets_beneficiaires` et `vue_soldes_actuels` sont des vues**, jamais des tables stockées — conforme au principe explicite du document pour cette étape. `vue_soldes_actuels` unifie en un seul endroit le solde fondateur (`wallet_fondateur`) et tous les soldes bénéficiaires (`wallets_beneficiaires`) via `UNION ALL`. Vérifié par test (mouvement de 25500 → solde bénéficiaire correct, panorama contient bien les deux types de lignes).
+
+**Pas de trigger automatique reliant `contributions_financement` à `mouvements_financiers`.** L'orchestration réelle (créditer le bénéficiaire, prélever une commission) est une logique métier qui s'écrira en TypeScript applicatif plus tard, pas en fonction Postgres imbriquée — conforme au principe absolu section 2. Le schéma fournit déjà la FK `mouvement_financier_id` pour tracer ce lien une fois cette logique construite côté application.
+
+**`contributions_financement`/`commissions_financement`/`retraits_financement` en append-only strict**, vérifié par test (UPDATE bloqué).
+
+## 2026-07-05 — Étape 15 (construite avant l'Étape 14) : Registre financier append-only
+
+**Réordonnancement 15 avant 14.** `wallets_beneficiaires` (Étape 14) doit être une vue calculée depuis `mouvements_financiers` (principe absolu section 2 : jamais de solde stocké en dur). Construire l'Étape 15 en premier évite de créer un entrepôt temporaire supplémentaire qu'il faudrait ensuite migrer — l'ordre strictement numérique du document n'est pas un absolu quand une dépendance technique réelle l'impose (le document lui-même dit "pas nécessairement l'ordre numérique brut").
+
+**Réconciliation de `transactions_wallet` (Étape 2) avec `mouvements_financiers`, sans perte de données.** `wallet_fondateur` (vue) somme désormais les deux registres : `transactions_wallet` (historique, gelé — plus jamais alimenté) et `mouvements_financiers` où `organisation_id is null and beneficiaire_id is null` (mouvements plateforme, alimenté à partir de maintenant). Vérifié par test : le solde reflète bien la somme des deux sources. Aucune table supprimée ni renommée, migration strictement additive.
+
+**`mouvements_financiers` append-only strict** : aucune policy UPDATE/DELETE, pour personne, y compris le fondateur — vérifié par test.
+
+## 2026-07-05 — Étape 13 : Intelligence économique
+
+**`organisation_id` nullable sur les 6 tables** (`opportunites`, `concours`, `bourses`, `financements`, `metiers_porteurs`, `analyses_marche`) : `null` = ressource globale curatée par le fondateur et visible à toutes les organisations, une valeur = ressource spécifique à une organisation. Testé explicitement : une ressource globale est visible par un compte d'une autre organisation ; une ressource spécifique à l'organisation A reste invisible à l'organisation B ; seul le fondateur peut créer une ressource globale (un membre non-fondateur qui tente `organisation_id = null` est bloqué par RLS).
+
+## 2026-07-05 — Étape 12 : Insertion professionnelle
+
+**Aucune durée de maintien en poste stockée en dur.** `suivis_post_insertion` porte `date_suivi`/`statut_maintien`, `insertions_professionnelles` porte `date_debut` — la durée "maintien ≥ 3 mois" que l'Étape 18 (Réussites) devra vérifier se calcule par différence de dates au moment voulu, jamais une colonne `duree_mois` maintenue à la main. Même principe que "l'âge ne se stocke jamais", appliqué par analogie à toute durée calculable.
+
+## 2026-07-05 — Étape 11 : Capital social
+
+**`capital_social` est une vue** (`DISTINCT ON (beneficiaire_id) ... ORDER BY date_evaluation DESC`), pas une table stockée, sur le même principe que `wallet_fondateur`/`top100_iga` : elle reflète toujours la dernière ligne d'`evaluations_capital_social`, jamais un état dupliqué qui pourrait diverger de l'historique. Vérifié par test (2 évaluations, 40 puis 65 — la vue retourne bien 65, pas une moyenne ni la première valeur).
+
+## 2026-07-05 — Étape 10 : AGR (Activités Génératrices de Revenus)
+
+**`revenus_agr`/`charges_agr` en append-only strict**, comme les tables financières de l'Étape 2 : ce sont des mouvements d'argent réels (revenus/charges d'une activité économique d'un bénéficiaire), le principe absolu de la section 2 s'applique sans exception. Vérifié par test : UPDATE/DELETE bloqués même pour le compte à l'origine de la ligne. `activites_agr`/`evaluations_agr`/`rapports_agr` restent mutables normalement (pas des registres financiers).
+
+## 2026-07-05 — Étape 8 : Formations & Classes
+
+**`competences` organisation-scopée**, pas un référentiel global partagé entre organisations. Chaque organisation définit ses propres compétences pour l'instant. Alternative écartée : un référentiel global type `referentiel_metiers_formations` (qui existera de toute façon à l'Étape 12, séparément) — non demandé explicitement pour ce module par le document.
+
+**Réutilisation confirmée de `classes_groupes`** (Étape 6) : aucune nouvelle table de classe créée ici, conformément à l'instruction explicite du document ("Réutiliser classes_groupes de l'Étape 6, ne pas la recréer").
+
+**Pas d'accès bénéficiaire direct** (résultats de quiz, soumissions de devoirs compris) — même posture que les Étapes 6 et 7, faute d'écran de connexion bénéficiaire fonctionnel à tester actuellement. Candidat naturel pour un futur "portail d'apprentissage" self-service une fois l'authentification construite.
+
+## 2026-07-05 — Étape 7 : Suivi psycho-éducatif
+
+**`projets_vie` en 1:1 avec `beneficiaires`** (`beneficiaire_id unique`) : un seul projet de vie actif par bénéficiaire, vérifié par test (2e projet rejeté par contrainte unique). Important pour la suite : l'Étape 18 (Réussites) référencera `projets_vie.statut = 'valide'` comme condition de proposition automatique de réussite — la contrainte unique garantit qu'il n'y a aucune ambiguïté sur "le" projet de vie d'un bénéficiaire au moment de cette vérification.
+
+**Pas d'accès bénéficiaire direct sur ce module** (suivis, observations, entretiens, incidents, sanctions, rapports, projets_vie) — même posture que l'Étape 6, le document ne demande pas qu'un bénéficiaire consulte lui-même ces données à ce stade. Point à reconsidérer explicitement si un jour un "espace bénéficiaire" self-service est demandé (probablement au moins pour son propre `projet_vie`, motivant, moins sensible que les incidents/sanctions).
+
+## 2026-07-05 — Étape 6 : Présences & Assiduité
+
+**`presences`/`absences`/`retards` en 3 tables distinctes**, conformément à la liste explicite du document (plutôt qu'une seule table avec une colonne `statut`). `presences` est le registre quotidien (une ligne par bénéficiaire par séance, contrainte unique `classe_id+beneficiaire_id+date_seance`) ; `absences`/`retards` sont des enregistrements de détail liés à une ligne `presences` (motif, durée, justification) — un niveau de détail supplémentaire, pas une duplication de la même information.
+
+**Aucun accès bénéficiaire direct sur ce module** (contrairement à `beneficiaires`/`evaluations_iga`) : la présence/assiduité reste un module côté personnel uniquement pour l'instant, le document ne demande pas qu'un bénéficiaire consulte lui-même son propre registre de présence à ce stade.
+
+**Raccordement du pointeur polymorphe de l'Étape 4** : `affectations_personnel.cible_type = 'classe'` peut désormais référencer `classes_groupes.id` — aucune migration nécessaire, la table existait déjà en anticipation de ce module.
+
+## 2026-07-05 — Étape 18 (light) : Dashboard minimal
+
+**Périmètre volontairement limité à la vue + la page, pas à l'authentification.** Aucune des 21 étapes nommées de l'architecture v5 ne couvre explicitement la construction d'un écran de connexion (les étapes sont centrées sur le schéma de données). Construire une UI de connexion complète (Supabase Auth UI, sessions, middleware de routes protégées) est un chantier frontend à part entière, plus gros qu'un "dashboard léger" — non traité ce soir, noté comme reste à faire dans `ETAT_PROJET.md`, pas bloquant. Conséquence assumée : tant que personne n'est connecté, le dashboard affiche honnêtement des zéros (RLS fonctionne comme prévu), ce n'est pas un bug.
+
+**`vue_dashboard_fondateur` créée dès maintenant avec ce nom définitif** (celui prévu par la section 25/Étape 23 de l'architecture), volontairement minimale (6 métriques). L'Étape 23 l'enrichira plus tard par `CREATE OR REPLACE VIEW` (additif), jamais par un renommage — évite de devoir migrer les futurs consommateurs de cette vue.
+
+**Playwright ajouté comme dépendance de développement** (pas une dépendance de production, aucune surface d'attaque runtime) pour satisfaire l'obligation de test end-to-end navigateur de `psychoeduc-boucle`. Choix par défaut plutôt qu'une bibliothèque alternative : c'est l'outil que la checklist sécurité du skill nomme explicitement.
+
+**Correction de dette technique en passant** : `lib/supabase. ts` (nom fauté, contenu dupliqué) remplacé par `lib/supabase.ts` propre, réutilisé par `app/page.tsx` (qui recréait auparavant son propre client dupliqué).
+
+## 2026-07-05 — Étape 9 : IGA (Indice Général d'Autonomie)
+
+**Leçon de l'Étape 5 appliquée dès la conception, pas après coup.** Le rôle `beneficiaire` n'a reçu aucun `peut_lire=true` org-large sur `evaluations_iga`/`scores_iga`/`classements_iga`/`recommandations_iga` dans le seed de `permissions`. Son accès passe exclusivement par des clauses RLS dédiées (`exists (... beneficiaires b where b.profile_id = auth.uid())`), restreintes à ses propres lignes. Testé explicitement avec un classement de 150 lignes : le bénéficiaire n'en voit qu'une (la sienne), jamais celles des autres.
+
+**`top100_iga` est une vue** (`security_invoker`) filtrant `classements_iga where rang <= 100`, pas une table stockée séparément — évite une double source de vérité entre le classement complet et son extrait. Vérifié par test (150 lignes de classement → 100 dans la vue).
+
+**Un seul `referentiels_iga.actif = true` à la fois**, appliqué par un index unique partiel sur une expression constante (`(true) where actif = true`) — même pattern que "un seul siège" de l'Étape 3. Vérifié par test (un 2e référentiel actif rejeté).
+
+**`evaluations_iga` n'est pas append-only strict**, contrairement aux tables financières : une évaluation reste modifiable par le personnel autorisé (ex. correction d'une erreur de saisie), tracée par l'audit générique. Le principe absolu d'append-only du document s'applique explicitement aux tables financières, pas aux évaluations IGA — la garantie de comparabilité historique vient plutôt du `referentiel_version_id` obligatoire (une évaluation reste rattachée à la version du référentiel en vigueur au moment où elle a été faite, même si le référentiel évolue plus tard).
+
+**`referentiels_iga`/`dimensions_iga`/`criteres_iga` sont des tables de référence globales** (pas d'`organisation_id`), lecture ouverte à tout authentifié (nécessaire pour construire un formulaire d'évaluation), écriture réservée au fondateur — même pattern que `codes_promo` (Étape 2).
+
+## 2026-07-04 — Étape 5 : Bénéficiaires — **incident de sécurité réel détecté et corrigé pendant le test**
+
+**Ce qui s'est passé** : le seed initial de la matrice `permissions` donnait `peut_lire = true` au rôle `beneficiaire` sur le module `beneficiaires`. Combiné à la fonction `peut_lire(module, organisation_id)` (qui vérifie un droit à l'échelle de **toute l'organisation**, pas d'une ligne précise), cela donnait à un compte bénéficiaire connecté un accès en lecture à **toutes** les fiches bénéficiaires de son organisation — y compris celles d'autres mineurs. Le test de cloisonnement de l'Étape 5 (`supabase/tests/test_cloisonnement_etape5.sql`) a explicitement vérifié ce cas précis (un compte bénéficiaire ne doit voir que sa propre fiche) et a détecté la fuite avant toute mise en production.
+**Correction appliquée** : `peut_lire = false` pour `('beneficiaire','beneficiaires')` dans la matrice. L'accès d'un bénéficiaire à sa propre fiche passe **exclusivement** par la clause dédiée `profile_id = auth.uid()` de la policy `beneficiaires_select`, jamais par la matrice de permissions générique — celle-ci ne doit servir qu'à des rôles dont l'accès est légitimement scopé à l'organisation entière (personnel), jamais à un rôle dont l'accès doit être restreint à une seule ligne.
+**Pourquoi ce n'est pas anodin pour la suite** : toute future table où un rôle doit voir uniquement SA PROPRE ligne (et non toutes les lignes de son organisation) doit suivre le même principe — accès via une clause RLS dédiée (`xxx_id = auth.uid()` ou équivalent), jamais via `peut_lire()`/`peut_creer()`/`peut_modifier()`/`peut_supprimer()` qui sont, par construction, scopés à l'organisation entière. Si un doute existe sur le périmètre d'un rôle vis-à-vis d'une table sensible, le test de cloisonnement doit explicitement simuler ce rôle avec deux enregistrements distincts dans la même organisation, pas seulement deux organisations différentes.
+
+**Pas de colonnes `score_iga_actuel`/`capital_social`/`statut_insertion` sur `beneficiaires`**, malgré leur mention dans le document comme "champs" de la fiche. Ces valeurs auront leurs propres tables versionnées (`scores_iga` Étape 9, `capital_social` Étape 11, `insertions_sociopro` Étape 12) — les dupliquer ici créerait deux sources de vérité divergentes. Elles seront exposées via une vue de synthèse une fois ces tables construites.
+
+**Aucune colonne d'âge, même générée** (principe absolu section 2). Fonction `public.calculer_age(date_naissance)` fournie pour le calcul à la demande.
+
+**`beneficiaires.profile_id` nullable** : la majorité des bénéficiaires (en particulier les mineurs) n'ont pas de compte de connexion propre. Le lien est optionnel, pour le cas où un bénéficiaire a effectivement son propre accès (rôle `beneficiaire`).
+
+**Conformité mineurs — état actuel, pas le dispositif final** : `consentements_donnees` (Étape 19) n'existe pas encore. En attendant, l'exposition est déjà minimisée par défaut : RLS stricte dès la création, aucune fonctionnalité de partage public ou de lien non authentifié introduite, testé explicitement (accès anonyme = 0 ligne). Ce n'est pas un blocage pour la suite de l'usine, mais un point à ne pas perdre de vue avant toute mise en production réelle avec de vraies données de mineurs.
+
+## 2026-07-04 — Étape 4 : Utilisateurs & Personnel
+
+**`personnel_structures` en complément 1:1 de `membres_organisations`** (via `membre_organisation_id`), pas une table de comptes séparée : elle ajoute uniquement le détail RH (poste, date d'embauche) pour les membres qui sont aussi du personnel.
+
+**`affectations_personnel` avec pointeur polymorphe (`cible_type text`, `cible_id uuid`), sans FK stricte.**
+Les cibles naturelles d'une affectation (classes, bénéficiaires, programmes) n'existent pas encore — elles arrivent aux étapes 5 à 8. Alternative écartée : reporter cette table à plus tard — rejetée car le document d'architecture l'assigne explicitement à l'Étape 4. Le pointeur est volontairement minimal (2 colonnes), pas une architecture EAV complète. Point de vigilance pour les étapes suivantes : penser à réutiliser ce pointeur (`cible_type='classe'`/`'beneficiaire'`/`'programme'`) plutôt que de créer de nouvelles tables d'affectation redondantes.
+
+**`sessions_connexion` rattachée à une organisation** (`organisation_id` nullable) en plus du profil, pour permettre un audit de sécurité par structure et pas seulement par utilisateur global. Pas de trigger d'audit générique dessus : une connexion n'a pas de notion "avant/après" à tracer, l'historique des connexions est déjà lui-même la trace.
+
+**Point de vigilance technique (pas une décision produit)** : `gen_random_bytes()` (pgcrypto) vit dans le schéma `extensions` sur ce projet Supabase, pas dans `public` ni dans le `search_path` par défaut — contrairement à `gen_random_uuid()` qui est résolu nativement. Toute future migration utilisant une fonction pgcrypto autre que `gen_random_uuid()`/`crypt()` doit la qualifier explicitement (`extensions.nom_fonction(...)`).
+
+## 2026-07-04 — Étape 3 : Clients (Solo, Structures, Employeurs)
+
+**Colonnes de `details_structures`/`details_employeurs`/`implantations` définies sans base documentaire précise.**
+L'architecture v5 nomme ces 3 tables sans en détailler les colonnes. Choix : colonnes minimales réalistes (secteur d'activité, identifiants légaux, description, site web pour les fiches de détail ; adresse/coordonnées/statut de siège pour les implantations). `implantations` est en 1:N (une organisation peut avoir plusieurs sites), `details_structures`/`details_employeurs` en 1:1. Toute colonne manquante découverte plus tard s'ajoute par `ALTER TABLE ADD COLUMN` (migration additive), jamais par recréation.
+
+**Un seul siège par organisation, appliqué par un index unique partiel** (`where est_siege = true`) plutôt que par une colonne booléenne sans contrainte.
+Raison : évite un bug silencieux (deux sièges déclarés par erreur) plutôt que de compter sur la seule discipline applicative. Vérifié explicitement par test (T5).
+
+## 2026-07-04 — Étape 2 : SaaS commercial
+
+**Tension architecturale résolue : `wallet_fondateur`/`transactions_wallet` construits avant `mouvements_financiers` (Étape 15).**
+L'architecture v5 liste `mouvements_financiers` comme table du socle, mais sa construction dédiée est l'Étape 15, reportée après l'Étape 2 dans l'ordre V1. Or un solde ne doit jamais être stocké/modifié directement (principe absolu section 2), il doit être recalculé depuis un registre de mouvements. Décision : `transactions_wallet` a été créée dès maintenant comme registre append-only dédié au portefeuille fondateur, et `wallet_fondateur` est une **vue** (`security_invoker`) qui somme `transactions_wallet.montant` où `statut='confirme'` — aucune table ne stocke de solde en dur.
+À l'Étape 15, `mouvements_financiers` deviendra le registre général de toute la plateforme. Décision reportée à ce moment-là : fusionner `transactions_wallet` dedans (migration additive : ajouter, faire coexister, déprécier progressivement) ou le garder comme vue spécialisée alimentée par `mouvements_financiers`. Aucune perte de données possible entre-temps car `transactions_wallet` est déjà lui-même append-only et auditable.
+
+**`paiements` : append-only strict par chaînage (`paiement_precedent_id`), pas de colonne `statut` mutable.**
+Un changement d'état (ex. un paiement `initie` confirmé par un webhook) insère une **nouvelle ligne** pointant vers la précédente via `paiement_precedent_id`, plutôt que de modifier la ligne existante. Alternative écartée : `statut` mutable mis à jour en place (pattern webhook classique, plus simple à interroger) — explicitement interdit par le principe absolu "tables financières = append-only strict" de la section 2 de l'architecture v5. Le calcul de revenu (`paiements.statut = 'confirme'`) reste correct avec ce modèle : chaque ligne porte son propre statut, peu importe l'historique.
+
+**Essai gratuit + licence + quotas auto-créés à la création d'une organisation** (trigger `handle_new_organisation_licence`, même mécanisme de contournement RLS par le propriétaire de table que le bootstrap membre/administrateur de l'Étape 1).
+Raison : cohérence avec le choix déjà fait à l'Étape 1 de rendre la création d'organisation entièrement self-service (aucune validation humaine préalable). Le type de licence (solo/structure/employeur) est déduit automatiquement de `organisations.type_organisation`.
+
+**`codes_promo` en table plateforme sans `organisation_id`** (pas de notion de code promo propre à une organisation à ce stade), lecture ouverte à tout authentifié pour permettre la validation à la volée d'un code au moment du paiement, écriture réservée au fondateur.
+
+## 2026-07-04 — Étape 1 : Authentification, organisations et rôles
+
+**Nettoyage des résidus de l'ancien schéma avant migration.**
+Le reset de base (145 tables supprimées) n'avait supprimé que les tables, pas les fonctions autonomes : 20 fonctions de l'ancien schéma (`is_fondateur`, `peut_lire`, `role_dans_organisation`, etc.) subsistaient et sont entrées en conflit avec les nouvelles (erreur "cannot change return type of existing function"). Elles ont été supprimées (`DROP FUNCTION ... CASCADE`) avant d'appliquer la migration v5 — sans risque, leur définition complète était déjà présente dans `backup_avant_reset.sql` (dump schema complet, pas juste les tables).
+Pourquoi ce n'est pas anodin : si une prochaine étape échoue avec une erreur similaire ("function already exists" / "cannot change return type"), le réflexe est de vérifier `select proname from pg_proc where pronamespace = 'public'::regnamespace` avant de conclure à un bug dans la nouvelle migration.
+
+**`profiles.id` = `auth.users.id` directement, pas de colonne `user_id` séparée.**
+Pattern standard Supabase. Alternative écartée : id propre + FK `user_id` — plus flexible en théorie, complexité inutile ici.
+
+**Un membre peut cumuler plusieurs rôles actifs dans une même organisation** (`roles_utilisateurs` est une table séparée liée à `membres_organisations`, pas une colonne unique `role` sur `membres_organisations`).
+Alternative écartée : rôle unique par membre — plus simple à interroger, mais ne colle pas à la réalité terrain (une même personne cumule souvent plusieurs casquettes dans une petite structure, ex. formateur + coordinateur).
+
+**Fonctions RLS (`is_fondateur`, `est_membre_organisation`, `role_dans_organisation`, `peut_lire/creer/modifier/supprimer`) en `SECURITY DEFINER`.**
+Nécessaire pour éviter la récursion RLS classique (une policy sur `membres_organisations` qui interrogerait `membres_organisations` déclenche l'erreur Postgres "infinite recursion detected in policy"). Ces fonctions s'exécutent avec les privilèges du propriétaire des tables (`postgres`), qui contourne RLS par défaut (aucune table n'a `FORCE ROW LEVEL SECURITY`).
+
+**Bootstrap automatique : le créateur d'une organisation en devient membre + `administrateur` automatiquement**, via un trigger (`handle_new_organisation`) qui s'appuie explicitement sur le fait que les tables appartiennent à `postgres` (contournement RLS par le propriétaire).
+Pourquoi c'est structurant : ça résout un problème d'amorçage qui serait autrement bloquant — sans fondateur existant, personne ne pourrait normalement créer la première ligne dans `membres_organisations`/`roles_utilisateurs` (les policies d'écriture de ces tables exigent déjà `peut_creer()`, qui exige déjà un rôle). Le rôle plateforme `fondateur` (accès global à toutes les organisations) reste volontairement une attribution **manuelle et unique**, à faire une fois par SQL direct sur le compte d'Angenor une fois son compte créé — ce n'est pas quelque chose qu'un self-signup peut obtenir.
+Alternative écartée : exiger une validation humaine à chaque création d'organisation avant que le créateur ait le moindre droit dessus — bloquant pour un usage SaaS self-service, non demandé par l'architecture v5.
+
+**Table `permissions` : matrice globale par rôle, pas de surcharge par organisation.**
+`permissions(role, module)` est unique et globale — un `formateur` a les mêmes droits sur le module `X` dans n'importe quelle organisation. Alternative écartée : surcharge par organisation (`permissions(role, module, organisation_id nullable)`) — plus flexible mais non demandée par la v5 à ce stade ; à reconsidérer si un client demande un jour des droits sur mesure par structure (migration additive possible plus tard : ajouter la colonne, garder le comportement global par défaut si `organisation_id is null`).
+
+**Lecture de `permissions` ouverte à tout utilisateur authentifié** (pas seulement au fondateur), écriture réservée au fondateur.
+Raison : le frontend a besoin de connaître la matrice de droits pour construire dynamiquement son UI (cacher un bouton "supprimer" si l'utilisateur n'a pas `peut_supprimer`), sans exposer de donnée sensible (la matrice ne contient aucune donnée personnelle).
+
+**`profiles` visible par les autres membres de la même organisation, pas seulement par soi-même/le fondateur.**
+Nécessaire pour qu'un annuaire de membres d'une organisation soit affichable (ex. liste du personnel). Reste limité aux colonnes non sensibles définies dans `profiles` (nom, prénoms, email, téléphone, photo) — aucune donnée de bénéficiaire n'y transite à ce stade.
+
+**`audit_logs` : aucune policy d'écriture pour le rôle `authenticated`, même pour le fondateur.**
+Seul le trigger `log_audit()` (exécuté avec les privilèges du propriétaire de table) peut y écrire. Aucun UPDATE/DELETE possible pour quiconque, y compris le fondateur — l'append-only est total, conformément au principe absolu de la section 2 de l'architecture v5. Vérifié explicitement par test (T14).
