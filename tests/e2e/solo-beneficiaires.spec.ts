@@ -46,7 +46,9 @@ test('un compte Solo peut ajouter un bénéficiaire, lui définir un jalon, le f
 
   const contenuMessage = `Message E2E ${Date.now()}`
   await page.fill('input[name="contenu"]', contenuMessage)
-  await page.click('button:has-text("Envoyer")')
+  // Nom exact requis : la fiche bénéficiaire porte aussi un bouton "Envoyer un message"
+  // (messagerie directe WhatsApp/Email) dont le libellé contient "Envoyer" en sous-chaîne.
+  await page.getByRole('button', { name: 'Envoyer', exact: true }).click()
   await page.waitForLoadState('networkidle')
   await expect(page.getByText(contenuMessage)).toBeVisible()
 

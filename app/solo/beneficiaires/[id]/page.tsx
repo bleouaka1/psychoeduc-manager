@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatusPill, IgaDial } from '../../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../../_lib/getSoloOrg'
 import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire } from './actions'
+import { chargerContactsBeneficiaire } from '@/lib/messagerieDirecteServer'
+import { EnvoyerMessageModal } from '../../_components/EnvoyerMessageModal'
 
 const STATUT_OBJECTIF_ICON: Record<string, any> = {
   a_venir: Circle,
@@ -46,6 +48,8 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
 
   if (!beneficiaire) return null
 
+  const contacts = await chargerContactsBeneficiaire(id)
+
   const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
   const derniereEval = evaluations?.[0]
 
@@ -63,13 +67,21 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
         title={`${beneficiaire.nom} ${beneficiaire.prenoms}`}
         subtitle="Feuille de route, échanges et historique IGA de ce bénéficiaire."
         actions={
-          <Link
-            href={`/solo/beneficiaires/${id}/rapport`}
-            target="_blank"
-            className="flex items-center gap-1.5 bg-bg-card border border-border-soft text-text-primary text-[13px] font-medium px-4 py-2.5 rounded-full"
-          >
-            <FileText size={14} /> Rapport de bilan
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <EnvoyerMessageModal
+              beneficiaire={contacts.beneficiaire}
+              parentsTuteurs={contacts.parentsTuteurs}
+              formateursResponsables={contacts.formateursResponsables}
+              modeWhatsApp={organisation.mode_whatsapp_defaut}
+            />
+            <Link
+              href={`/solo/beneficiaires/${id}/rapport`}
+              target="_blank"
+              className="flex items-center gap-1.5 bg-bg-card border border-border-soft text-text-primary text-[13px] font-medium px-4 py-2.5 rounded-full"
+            >
+              <FileText size={14} /> Rapport de bilan
+            </Link>
+          </div>
         }
       />
 

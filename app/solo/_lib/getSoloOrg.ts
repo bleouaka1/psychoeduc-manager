@@ -5,6 +5,7 @@ export type SoloOrganisation = {
   id: string
   nom: string
   type_organisation: string
+  mode_whatsapp_defaut: string
 }
 
 /**
@@ -23,7 +24,7 @@ export const getSoloOrganisation = cache(async (): Promise<SoloOrganisation | nu
 
   const { data } = await supabase
     .from('membres_organisations')
-    .select('organisations(id, nom, type_organisation)')
+    .select('organisations(id, nom, type_organisation, mode_whatsapp_defaut)')
     .eq('profile_id', user.id)
     .eq('statut', 'actif')
 

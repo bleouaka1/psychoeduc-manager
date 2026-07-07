@@ -61,7 +61,9 @@ test('un signalement envoyé sur la fiche bénéficiaire apparaît dans le fil c
   const contenu = `Signalement E2E ${Date.now()}`
   await page.selectOption('select[name="type_message"]', 'signalement')
   await page.fill('input[name="contenu"]', contenu)
-  await page.click('button:has-text("Envoyer")')
+  // Nom exact requis : la fiche bénéficiaire porte aussi un bouton "Envoyer un message"
+  // (messagerie directe WhatsApp/Email) dont le libellé contient "Envoyer" en sous-chaîne.
+  await page.getByRole('button', { name: 'Envoyer', exact: true }).click()
   await page.waitForLoadState('networkidle')
 
   await expect(page.getByText(contenu)).toBeVisible()

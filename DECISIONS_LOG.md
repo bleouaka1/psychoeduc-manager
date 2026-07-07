@@ -2,6 +2,26 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-06 (soir) — Messagerie directe WhatsApp/Email bénéficiaires (V1, `PLAN_MESSAGERIE_BENEFICIAIRES.md`)
+
+Construit en mode autonome sur demande explicite d'Angenor ("avance et exécute"), à partir de `SPEC-Messagerie-Beneficiaires.md`. Portée strictement V1 (mode A — lien `wa.me`/`mailto`) ; le mode B (WhatsApp Business API) reste explicitement hors périmètre (la spec elle-même le signale comme un chantier à part de plusieurs jours/semaines).
+
+**Réutilisation de `telephone`/`email` déjà existants sur `beneficiaires`/`parents_tuteurs`/`profiles` (Étapes 1 et 5), pas de colonne `telephone_whatsapp` séparée.** La distinction de la spec ("contact WhatsApp" vs contact générique) est un usage fonctionnel du même numéro, pas une donnée réellement différente à dupliquer — cohérent avec le principe du projet d'étendre plutôt que dupliquer.
+
+**"Formateur/Responsable" résolu via `affectations_personnel`, aucune nouvelle table.** Cette table (cible polymorphe `cible_type`/`cible_id`, Étape 4) existait déjà pour ce genre de rattachement mais n'était utilisée par aucune UI ; `cible_type='beneficiaire'` s'y intègre naturellement.
+
+**Nouvelle page privée `/solo/parametres` plutôt qu'extension de `/solo/profil`.** `/solo/profil` est la vitrine publique visible des acheteurs (mélanger un réglage de communication privé dedans aurait été confus sémantiquement) ; aucune page de paramètres privés Compte Solo n'existait avant.
+
+**`organisations.mode_whatsapp_defaut` accepté en base avec les deux valeurs (`lien_simple`/`api_business`) dès maintenant, mais `api_business` refusé côté serveur (`definirModeWhatsAppDefaut`) tant qu'il n'est pas implémenté.** Évite une migration supplémentaire du `check` le jour où le mode B sera construit ; aucun chemin UI ne permet de le sélectionner en attendant (radio désactivée, "Bientôt disponible"), donc aucun risque qu'un praticien se retrouve avec un mode non fonctionnel actif.
+
+**Limite explicitement laissée en l'état, hors périmètre de cette feature** : aucun formulaire n'existe pour éditer le téléphone/email d'un bénéficiaire ou d'un parent/tuteur après création (le formulaire "Ajouter un bénéficiaire" ne demande que nom/prénoms). Construire cette UI serait une extension du module de gestion des bénéficiaires existant, pas de la messagerie elle-même — signalé pour une session future plutôt que construit en silence en dépassement de la demande initiale.
+
+**Vérification** : `supabase/tests/test_messagerie_directe.sql` (résolution des 3 catégories de contact avec cloisonnement RLS testé explicitement à deux organisations, contrainte `check` sur `mode_whatsapp_defaut`) ; `tests/e2e/messagerie-beneficiaires.spec.ts` (bouton désactivé + catégories grisées quand un bénéficiaire n'a aucun contact) ; `tests/e2e/navigation.spec.ts` étendu à `/solo/parametres` ; fonctions pures de génération de lien (`lib/messagerieDirecte.ts`) vérifiées par un script Node ad hoc (numéro avec espaces/tirets nettoyé correctement, encodage des accents/retours à la ligne). `tsc --noEmit` propre.
+
+**Deux vraies régressions trouvées et corrigées pendant la vérification finale (suite Playwright complète)** : le bouton "Envoyer un message" ajouté dans le `PageHeader` de la fiche bénéficiaire contient la sous-chaîne "Envoyer", entrant en collision avec le sélecteur fragile `button:has-text("Envoyer")` déjà utilisé par deux tests préexistants (`gestion-beneficiaires.spec.ts`, `solo-beneficiaires.spec.ts`) pour cibler le bouton d'envoi de la messagerie interne bénéficiaire — Playwright cliquait alors sur le mauvais bouton (le mien, apparaissant avant dans le DOM), et le vrai message n'était jamais envoyé. Corrigé en basculant ces deux tests sur `getByRole('button', { name: 'Envoyer', exact: true })` plutôt que de renommer mon bouton (le libellé "Envoyer un message" est demandé tel quel par `SPEC-Messagerie-Beneficiaires.md`). Leçon générale : un sélecteur `:has-text()` non exact reste fragile dès qu'un nouveau bouton contenant le même mot est ajouté ailleurs sur une page partagée — préférer `exact: true` par défaut pour les libellés courts et courants ("Envoyer", "Ajouter", "Supprimer").
+
+**Bug de sémantique accessible corrigé au passage** : les boutons WhatsApp/Email désactivés (aucun contact) étaient d'abord rendus comme des `<a>` sans `href` — un lien sans `href` perd son rôle ARIA "link" et devient invisible à `getByRole('link', ...)`, masquant potentiellement l'état désactivé à un lecteur d'écran aussi bien qu'à un test. Corrigé en rendant un vrai `<button disabled>` dans ce cas, et un `<a href=...>` uniquement quand le contact existe.
+
 ## 2026-07-06 — Modération Marketplace (Fondateur) + messagerie ciblée sur une offre
 
 Construit en session interactive avec Angenor (validation à chaque étape, cf. `PLAN_MODERATION_MARKETPLACE.md`), en parallèle d'une autre session Claude Code travaillant sur "Publication auto des formations, Étape 3/3" — coordination gérée en observant `git status`/les migrations de l'autre session plutôt qu'en bloquant, aucun fichier partagé touché des deux côtés (confirmé par les deux sessions dans leurs commits respectifs).

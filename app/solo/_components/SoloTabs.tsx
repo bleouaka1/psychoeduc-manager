@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, GraduationCap, Wallet, IdCard, CalendarClock, Store, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, Users, GraduationCap, Wallet, IdCard, CalendarClock, Store, Settings, type LucideIcon } from 'lucide-react'
 
 const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/solo', label: 'Vue générale', icon: LayoutDashboard },
@@ -12,6 +12,7 @@ const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/solo/calendrier', label: 'Calendrier', icon: CalendarClock },
   { href: '/solo/revenus', label: 'Revenus', icon: Wallet },
   { href: '/solo/profil', label: 'Profil public', icon: IdCard },
+  { href: '/solo/parametres', label: 'Paramètres', icon: Settings },
 ]
 
 export default function SoloTabs() {

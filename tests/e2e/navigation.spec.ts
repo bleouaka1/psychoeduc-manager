@@ -33,6 +33,7 @@ const ROUTES = [
   '/solo/calendrier',
   '/solo/revenus',
   '/solo/profil',
+  '/solo/parametres',
 ]
 
 test('toutes les pages du menu latéral se chargent sans erreur JS ni erreur serveur', async ({ page }) => {
