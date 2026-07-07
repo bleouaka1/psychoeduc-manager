@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Panel, PageHeader } from '../../../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../../../_lib/getSoloOrg'
 import { BoutonImprimer } from '../../../_components/BoutonImprimer'
+import { EnteteImpression } from '../../../_components/EnteteImpression'
 
 export default async function RapportBeneficiairePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -23,6 +24,7 @@ export default async function RapportBeneficiairePage({ params }: { params: Prom
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-6">
+      <EnteteImpression organisation={organisation} />
       <PageHeader
         title={`Rapport de bilan — ${beneficiaire.nom} ${beneficiaire.prenoms}`}
         subtitle={`Généré le ${formatter.format(new Date())} par ${organisation.nom}. Destiné à être transmis à un parent ou une structure partenaire.`}

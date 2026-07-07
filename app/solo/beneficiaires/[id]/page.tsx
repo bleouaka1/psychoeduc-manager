@@ -1,11 +1,14 @@
 import Link from 'next/link'
-import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, CircleDot, Activity, AlertTriangle, CalendarClock, Gauge } from 'lucide-react'
+import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, CircleDot, Activity, AlertTriangle, CalendarClock, Gauge, NotebookPen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatusPill, IgaDial } from '../../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../../_lib/getSoloOrg'
 import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire } from './actions'
+import { creerEntretien } from './entretiens/actions'
 import { chargerContactsBeneficiaire } from '@/lib/messagerieDirecteServer'
 import { EnvoyerMessageModal } from '../../_components/EnvoyerMessageModal'
+
+const TYPE_ENTRETIEN_LABEL: Record<string, string> = { general: 'Général', specialise: 'Spécialisé' }
 
 const STATUT_OBJECTIF_ICON: Record<string, any> = {
   a_venir: Circle,
@@ -39,11 +42,12 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
 
   const supabase = await createClient()
 
-  const [{ data: beneficiaire }, { data: evaluations }, { data: objectifs }, { data: messages }] = await Promise.all([
+  const [{ data: beneficiaire }, { data: evaluations }, { data: objectifs }, { data: messages }, { data: entretiens }] = await Promise.all([
     supabase.from('beneficiaires').select('id, nom, prenoms, statut_beneficiaire, created_at').eq('id', id).eq('organisation_id', organisation.id).single(),
     supabase.from('evaluations_iga').select('score_global, niveau, date_evaluation').eq('beneficiaire_id', id).order('date_evaluation', { ascending: false }),
     supabase.from('objectifs_beneficiaire').select('id, titre, description, statut, date_cible, atteint_le').eq('beneficiaire_id', id).order('ordre').order('created_at'),
     supabase.from('messages').select('id, contenu, created_at, type_message').eq('destinataire_beneficiaire_id', id).order('created_at', { ascending: false }).limit(40),
+    supabase.from('entretiens').select('id, type_entretien, statut, date_entretien, created_at').eq('beneficiaire_id', id).order('created_at', { ascending: false }),
   ])
 
   if (!beneficiaire) return null
@@ -53,10 +57,12 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
   const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
   const derniereEval = evaluations?.[0]
 
-  // Fil chronologique unifié : évaluations IGA + messages (tous types, vue formateur), trié par date.
+  // Fil chronologique unifié : évaluations IGA + messages + entretiens VALIDÉS uniquement
+  // (un brouillon n'est pas encore un événement du parcours, cf. spec §0/§2).
   const fil = [
     ...(evaluations ?? []).map((e: any) => ({ type: 'evaluation' as const, date: e.date_evaluation, data: e })),
     ...(messages ?? []).map((m: any) => ({ type: 'message' as const, date: m.created_at, data: m })),
+    ...(entretiens ?? []).filter((e: any) => e.statut === 'valide').map((e: any) => ({ type: 'entretien' as const, date: e.date_entretien, data: e })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
@@ -155,6 +161,42 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
         )}
       </Panel>
 
+      <Panel title="Entretiens" icon={NotebookPen} className="mb-6">
+        <form action={creerEntretien.bind(null, id)} className="flex flex-wrap gap-2.5 mb-5">
+          <button
+            type="submit"
+            name="type_entretien"
+            value="general"
+            className="flex items-center gap-1.5 bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base font-semibold text-[13px] px-4 py-2 rounded-full"
+          >
+            <NotebookPen size={14} /> Créer un entretien général
+          </button>
+          <button
+            type="submit"
+            name="type_entretien"
+            value="specialise"
+            className="flex items-center gap-1.5 bg-bg-surface border border-border-soft text-text-primary font-semibold text-[13px] px-4 py-2 rounded-full"
+          >
+            <NotebookPen size={14} /> Créer un entretien spécialisé
+          </button>
+        </form>
+
+        {(entretiens ?? []).length === 0 ? (
+          <p className="text-text-muted text-sm py-2 text-center">Aucun entretien pour le moment.</p>
+        ) : (
+          <ul className="space-y-2">
+            {(entretiens ?? []).map((e: any) => (
+              <li key={e.id} className="flex items-center justify-between gap-3 bg-bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                <Link href={`/solo/beneficiaires/${id}/entretiens/${e.id}`} className="text-accent-gold hover:underline text-[13px]">
+                  Entretien {TYPE_ENTRETIEN_LABEL[e.type_entretien] ?? e.type_entretien} — {formatter.format(new Date(e.date_entretien))}
+                </Link>
+                <StatusPill status={e.statut === 'valide' ? 'ok' : 'idle'}>{e.statut === 'valide' ? 'Validé' : 'Brouillon'}</StatusPill>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
       <Panel title="Messagerie" icon={MessageCircle} className="mb-6">
         <form action={envoyerMessageBeneficiaire.bind(null, id)} className="flex flex-wrap gap-2.5 mb-5">
           <select name="type_message" defaultValue="suivi" className="bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary">
@@ -192,6 +234,23 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
                     <div className="flex-1">
                       <p className="text-text-primary text-[13px]">Évaluation IGA — {e.score_global ?? '—'}/100 {e.niveau ? `(${e.niveau})` : ''}</p>
                       <p className="text-text-muted text-[10.5px] mt-0.5">{formatter.format(new Date(e.date_evaluation))}</p>
+                    </div>
+                  </li>
+                )
+              }
+              if (evt.type === 'entretien') {
+                const e = evt.data
+                return (
+                  <li key={`ent-${i}`} className="flex items-start gap-2.5 bg-bg-surface border border-border-soft rounded-xl px-4 py-3">
+                    <NotebookPen size={15} className="text-accent-gold mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-text-primary text-[13px]">
+                        Entretien {TYPE_ENTRETIEN_LABEL[e.type_entretien] ?? e.type_entretien} validé —{' '}
+                        <Link href={`/solo/beneficiaires/${id}/entretiens/${e.id}`} className="text-accent-gold hover:underline">
+                          consulter
+                        </Link>
+                      </p>
+                      <p className="text-text-muted text-[10.5px] mt-0.5">{formatter.format(new Date(e.date_entretien))}</p>
                     </div>
                   </li>
                 )
