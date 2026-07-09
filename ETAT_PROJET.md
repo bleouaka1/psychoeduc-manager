@@ -1,3 +1,35 @@
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-08 (IGA multi-référentiel E/A/J/AD)
+
+## Résumé (lisible en 30 secondes) — IGA multi-référentiel : IGA-E, IGA-A, IGA-J, IGA-AD (`PLAN_IGA_MULTI_REFERENTIEL.md`)
+- 4 nouveaux référentiels IGA actifs simultanément (Enfance 0-12, Adolescents/Jeunes 13-25, Jeunes adultes
+  18-35, Adultes 35+), en plus du référentiel historique à 12 dimensions (inchangé). ~94 nouveaux critères,
+  chacun avec son échelle littérale complète 0-4 (aucun raccourci "même logique"), chaque référentiel
+  totalisant exactement 100 points (vérifié).
+- **Décision structurante** : `referentiels_iga` n'autorisait qu'un seul référentiel actif à la fois (pensé
+  pour des versions successives) — contrainte relâchée pour permettre 4 instruments parallèles actifs en
+  même temps, routés par tranche d'âge plutôt que remplacés les uns par les autres.
+- **Chevauchement 18-25 (IGA-A vs IGA-J)** résolu par choix du praticien (référentiel suggéré selon l'âge,
+  toujours modifiable), pas par une règle automatique rigide — cohérent avec le principe "le logiciel
+  facilite, ne remplace pas le jugement professionnel" du document de philosophie IGA.
+- **IGA-A rédigé par Claude Code** (échelles 0-4 complètes) à partir d'un résumé sommaire fourni — le
+  document de référence détaillé n'a jamais été transmis. **Soumis à validation d'Angenor**, contrairement à
+  IGA-E/J/AD qui reprennent le texte littéral des fiches fournies telles quelles.
+- **Nouveau formulaire de prise d'évaluation** (`/solo/beneficiaires/[id]/evaluations/nouvelle`) — n'existait
+  pas avant cette session (les tables `evaluations_iga`/`dimensions_iga` n'étaient lues que pour des
+  statistiques, jamais pour une saisie). Score calculé en TypeScript standard (`lib/iga.ts`), jamais fait
+  confiance aux poids envoyés par le client (relus systématiquement en base côté serveur).
+- **Page de résultat** (`/solo/beneficiaires/[id]/evaluations/[evaluationId]`) : score global, niveau
+  (réutilise l'enum existant `evaluations_iga.niveau`, juste un remapping de libellé), dimensions
+  fortes/faibles, ajout de pistes d'action (`recommandations_iga`, table déjà existante mais jamais
+  utilisée par une UI).
+- Vérifié : script SQL confirmant les totaux à 100 points par référentiel, test Playwright de bout en bout
+  (évaluation IGA-J complète notée au maximum → 100/100 affiché, dimensions fortes/faibles visibles),
+  non-régression de `test_cloisonnement_etape9.sql` (RLS non modifiée, seulement des colonnes/lignes
+  additives), `tsc --noEmit` propre.
+- **Hors périmètre de cette session** : logique de verrouillage par achat V2 (statuts
+  en_développement/disponible_à_achat/actif) — V1 = tous les modules gratuits sur tous les comptes, comme
+  demandé explicitement.
+
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-07 (soir, fiches d'entretien)
 
 ## Résumé (lisible en 30 secondes) — Fiches d'entretien Général/Spécialisé (`CLAUDE-CODE-Entretiens-Messagerie.md` §2, terminé)

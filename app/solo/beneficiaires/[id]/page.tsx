@@ -7,6 +7,7 @@ import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire } from './
 import { creerEntretien } from './entretiens/actions'
 import { chargerContactsBeneficiaire } from '@/lib/messagerieDirecteServer'
 import { EnvoyerMessageModal } from '../../_components/EnvoyerMessageModal'
+import { REFERENTIEL_LABEL, type CodeReferentielIga } from '@/lib/iga'
 
 const TYPE_ENTRETIEN_LABEL: Record<string, string> = { general: 'Général', specialise: 'Spécialisé' }
 
@@ -44,7 +45,7 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
 
   const [{ data: beneficiaire }, { data: evaluations }, { data: objectifs }, { data: messages }, { data: entretiens }] = await Promise.all([
     supabase.from('beneficiaires').select('id, nom, prenoms, statut_beneficiaire, created_at').eq('id', id).eq('organisation_id', organisation.id).single(),
-    supabase.from('evaluations_iga').select('score_global, niveau, date_evaluation').eq('beneficiaire_id', id).order('date_evaluation', { ascending: false }),
+    supabase.from('evaluations_iga').select('id, score_global, niveau, date_evaluation, referentiels_iga(code)').eq('beneficiaire_id', id).order('date_evaluation', { ascending: false }),
     supabase.from('objectifs_beneficiaire').select('id, titre, description, statut, date_cible, atteint_le').eq('beneficiaire_id', id).order('ordre').order('created_at'),
     supabase.from('messages').select('id, contenu, created_at, type_message').eq('destinataire_beneficiaire_id', id).order('created_at', { ascending: false }).limit(40),
     supabase.from('entretiens').select('id, type_entretien, statut, date_entretien, created_at').eq('beneficiaire_id', id).order('created_at', { ascending: false }),
@@ -101,17 +102,32 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
         </Panel>
         <Panel title="Historique IGA">
           {(evaluations ?? []).length === 0 ? (
-            <p className="text-text-muted text-xs">Aucune évaluation enregistrée.</p>
+            <p className="text-text-muted text-xs mb-3">Aucune évaluation enregistrée.</p>
           ) : (
-            <ul className="space-y-1.5 text-xs">
-              {(evaluations ?? []).slice(0, 4).map((e: any, i: number) => (
-                <li key={i} className="flex justify-between text-text-muted">
-                  <span>{formatter.format(new Date(e.date_evaluation))}</span>
-                  <span className="font-data text-text-primary">{e.score_global ?? '—'}/100</span>
+            <ul className="space-y-1.5 text-xs mb-3">
+              {(evaluations ?? []).slice(0, 4).map((e: any) => (
+                <li key={e.id}>
+                  <Link href={`/solo/beneficiaires/${id}/evaluations/${e.id}`} className="flex justify-between items-center text-text-muted hover:text-text-primary">
+                    <span>
+                      {formatter.format(new Date(e.date_evaluation))}
+                      {e.referentiels_iga?.code && (
+                        <span className="text-[10.5px] ml-1.5 opacity-70">
+                          ({REFERENTIEL_LABEL[e.referentiels_iga.code as CodeReferentielIga]?.split(' — ')[0] ?? e.referentiels_iga.code})
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-data text-text-primary">{e.score_global ?? '—'}/100</span>
+                  </Link>
                 </li>
               ))}
             </ul>
           )}
+          <Link
+            href={`/solo/beneficiaires/${id}/evaluations/nouvelle`}
+            className="flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-bg-base bg-accent-gold rounded-full px-3.5 py-2"
+          >
+            <Gauge size={13} /> Nouvelle évaluation IGA
+          </Link>
         </Panel>
       </div>
 
