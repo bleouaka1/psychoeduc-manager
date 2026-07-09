@@ -13,7 +13,9 @@ async function connecter(browser: import('@playwright/test').Browser, email: str
   await page.fill('#email', email)
   await page.fill('#password', password)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/', { timeout: LOGIN_TIMEOUT })
+  // Solo et Fondateur atterrissent sur des routes différentes après connexion
+  // (/solo, /dashboard…) — on attend juste la sortie de /login, pas une URL exacte.
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: LOGIN_TIMEOUT })
   return { context, page }
 }
 

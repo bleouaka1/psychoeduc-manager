@@ -2,6 +2,10 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-09 — IGA-A validé par Angenor
+
+Les 6 dimensions et 26 critères d'IGA-A (13-25 ans), rédigés par Claude Code faute de document source détaillé (cf. entrée "IGA multi-référentiel : IGA-E, IGA-A, IGA-J, IGA-AD" ci-dessous), sont validés par Angenor tels quels. Ce module n'a donc plus la réserve "non définitif" qui l'accompagnait — il a le même statut que IGA-E/J/AD (texte repris directement des fiches sources).
+
 ## 2026-07-09 (soir) — Messagerie interne (Inbox) : cinq bugs RLS/contrainte trouvés en vérifiant bout en bout
 
 Construit en mode autonome sur demande explicite d'Angenor ("travaille jusqu'à finir ta session seul"), à partir de `CLAUDE-CODE-Messagerie-Interne.md`.
