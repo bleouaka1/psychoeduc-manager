@@ -48,7 +48,9 @@ test('un compte Solo peut créer une évaluation IGA-J complète et voir le rés
   await expect(page.getByText('Résultat de l\'évaluation')).toBeVisible()
   await expect(page.getByText('Autonomie élevée')).toBeVisible({ timeout: 15000 })
   await expect(page.getByText('Dimensions les plus fortes')).toBeVisible()
-  await expect(page.getByText('Dimensions à travailler en priorité')).toBeVisible()
+  // Nom exact requis : le panneau "Mise en relation" contient aussi cette sous-chaîne
+  // dans un texte d'introduction ("praticiens spécialisés sur les dimensions à travailler...").
+  await expect(page.getByRole('heading', { name: 'Dimensions à travailler en priorité' })).toBeVisible()
 
   // Tout noté au maximum -> le cadran IGA affiche 100 (Math.round de la valeur, texte brut dans le SVG).
   await expect(page.getByText('100', { exact: true })).toBeVisible()

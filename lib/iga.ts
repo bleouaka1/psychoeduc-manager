@@ -82,6 +82,38 @@ export const NIVEAU_LABEL: Record<string, string> = {
   leadership_autonome: 'Autonomie élevée',
 }
 
+/** Conseils génériques automatiques par dimension faible (§3 du document Mécanisme
+ * IGA→Marketplace) — texte statique, pas de génération IA. Un même code de dimension
+ * peut apparaître dans plusieurs référentiels avec un libellé légèrement différent ;
+ * le conseil reste valable dans les deux cas. */
+export const CONSEIL_GENERIQUE_PAR_DIMENSION: Record<string, string> = {
+  autonomie_economique: 'Apprendre à établir un budget simple, ouvrir un compte d’épargne même modeste, et suivre ses dépenses régulièrement.',
+  logement: 'Explorer les options de logement autonome adaptées au budget, et sécuriser progressivement les charges courantes (loyer, eau, électricité).',
+  emploi_activite: 'Identifier une activité stable, même modeste au départ, et construire une régularité de revenu avant de viser l’évolution.',
+  sante: 'Consulter un suivi médical régulier, même préventif, et rétablir des habitudes de sommeil/alimentation stables.',
+  vie_citoyenne: 'Régulariser les documents administratifs essentiels en priorité, puis explorer une participation communautaire simple.',
+  relations_affectives: 'Identifier une personne de confiance pour un soutien relationnel, et travailler la communication dans les relations proches.',
+  parentalite: 'Se rapprocher d’un accompagnement parental si besoin, et sécuriser d’abord les besoins matériels de base de l’enfant.',
+  developpement_professionnel: 'Suivre une formation continue ciblée, et se constituer un réseau professionnel actif même restreint au départ.',
+  developpement_personnel: 'Travailler la gestion des émotions et la confiance en soi par des routines simples et un accompagnement adapté.',
+  habitudes_de_vie: 'Stabiliser une routine quotidienne simple (hygiène, sommeil, alimentation) avant d’ajouter d’autres objectifs.',
+  scolarite: 'Renforcer l’assiduité et la relation avec les enseignants en priorité — la motivation suit souvent une fois le cadre stabilisé.',
+  socialisation: 'Favoriser des occasions d’interaction encadrées avec les pairs pour développer progressivement la confiance sociale.',
+  vie_familiale: 'Impliquer les figures parentales/tutrices dans le suivi pour stabiliser un environnement familial plus sécurisant.',
+  securite: 'Signaler et traiter en priorité tout risque identifié — c’est la base avant tout autre travail d’autonomie.',
+  developpement_cognitif: 'Proposer des activités de stimulation adaptées à l’âge, en lien avec l’école ou un accompagnement spécialisé.',
+  autonomie_personnelle: 'Reprendre les gestes du quotidien un à un, avec des routines simples et des rappels progressivement espacés.',
+  autonomie_sociale: 'Multiplier les occasions de travail en groupe encadré pour développer la communication et la gestion des conflits.',
+  autonomie_educative_professionnelle: 'Renforcer l’assiduité et la qualité du travail avant de viser l’initiative et l’autonomie complète.',
+  insertion_socioprofessionnelle: 'Construire un CV simple et préparer un entretien type — commencer par une recherche de stage courte et encadrée.',
+  capital_social: 'Identifier 2-3 personnes ressources fiables (famille, éducateurs, pairs) sur qui s’appuyer en cas de besoin.',
+  situation_financiere: 'Faire un état des lieux complet des dettes et revenus, puis établir un plan de stabilisation réaliste.',
+  reseau_social: 'Réactiver des liens existants avant d’en construire de nouveaux — la qualité prime sur le nombre.',
+  gestion_administrative: 'Établir une check-list des obligations administratives en retard et les traiter une par une.',
+  bien_etre_psychologique: 'Identifier une personne ou un professionnel de confiance à solliciter en cas de besoin, avant que la difficulté ne s’aggrave.',
+  preparation_avenir: 'Formaliser un projet à long terme simple, même modeste, plutôt que de repousser toute anticipation.',
+}
+
 export const REFERENTIEL_LABEL: Record<CodeReferentielIga, string> = {
   iga_e: 'IGA-E — Enfance (0-12 ans)',
   iga_a: 'IGA-A — Adolescents/Jeunes (13-25 ans)',

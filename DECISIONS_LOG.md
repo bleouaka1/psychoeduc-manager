@@ -2,6 +2,26 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-09 — Mécanisme IGA → Marketplace : spécialités, IPP, recommandations
+
+Construit en mode autonome sur demande explicite d'Angenor ("travaille seul jusqu'à finir"), à partir d'`IGA_Mecanisme_Marketplace.md`.
+
+**L'IPP (Indice de Performance du Praticien) n'était PAS "déjà prévu dans l'architecture" comme l'affirmait le document source** — vérifié explicitement (recherche dans `docs/PsychoEduc_Manager_Architecture_v5.md`, `DECISIONS_LOG.md`, toutes les migrations : aucune trace). Construit de zéro plutôt que de chercher à "connecter" quelque chose d'inexistant.
+
+**IPP en registre append-only (`evenements_ipp`) + vue calculée (`vue_ipp`), jamais de score stocké modifiable en place.** Même principe déjà appliqué à l'argent (Étape 2 : `transactions_wallet`/`wallet_fondateur`) et à l'audit (`audit_logs`, append-only strict) — un score de confiance manipulable directement serait aussi problématique qu'un solde financier modifiable directement, et le document source l'exige explicitement ("jamais par simple déclaration", §6.2). Écriture réservée au Fondateur, aucune policy UPDATE/DELETE même pour lui (cohérent avec `audit_logs`). Baseline neutre à 50/100 pour tout praticien sans historique — pas de score à zéro qui pénaliserait injustement l'absence de données.
+
+**`specialites_dimensions_iga` (colonne additive sur `profils_publics_formateurs`) plutôt qu'une réutilisation du champ texte libre `specialites` existant.** Le document exige un matching précis "spécialiste sur CETTE dimension précise" — un champ texte libre ne permet pas de garantir la correspondance exacte avec les codes de dimension IGA. Le champ texte libre existant reste pour l'affichage humain (bio, thématiques hors-IGA).
+
+**Scope volontairement réduit aux comptes Solo pour la déclaration de spécialités** : aucun portail "Structure" n'existe encore dans l'application (seuls `/solo`, `/employeur` et le Cockpit Fondateur existent) — étendre à un type de compte qui n'a pas encore d'interface aurait été prématuré. Signalé, pas construit en silence.
+
+**Formulaire de soumission de témoignage/résultat + interface d'approbation Fondateur dédiée : différés.** Le mécanisme de vérification lui-même (§6.2) est un sous-système à part entière (soumission → recoupement avec les données réelles → approbation). En attendant cette UI, un événement IPP reste insérable par le Fondateur via SQL direct sans compromettre la garantie "jamais par simple déclaration" (l'insertion reste réservée au Fondateur par RLS, peu importe le canal utilisé pour la déclencher). Corrélation automatique avec le module Réussites (§6.1.2) également différée — delta fixe par type d'événement pour l'instant, pas de calcul dynamique.
+
+**Nouvelle fonction `organisation_fondateur()` (SECURITY DEFINER)** : nécessaire pour résoudre l'organisation Solo du Fondateur depuis la page de résultat IGA de n'importe quel praticien (RLS de `membres_organisations`/`roles_utilisateurs` le restreindrait sinon à sa propre organisation) — même contournement volontaire déjà appliqué à `organisation_est_fondateur()`/`premier_membre_actif()`.
+
+**Un vrai conflit de sélecteur de test trouvé et corrigé en vérifiant la suite complète** : le nouveau panneau "Mise en relation" contient le texte "praticiens spécialisés sur les dimensions à travailler en priorité…", entrant en collision avec l'assertion `getByText('Dimensions à travailler en priorité')` du test `iga-evaluation.spec.ts` (écrit la session précédente). Corrigé en ciblant le rôle `heading` explicitement plutôt que le texte brut — même leçon déjà appliquée à la modération marketplace (préférer `exact: true`/rôle à un `getByText` générique dès qu'un libellé partagé existe ailleurs sur la page).
+
+**Vérification** : `supabase/tests/test_ipp.sql` (baseline à 50 sans historique, un tiers non-fondateur ne peut jamais insérer d'événement IPP, le score se met à jour correctement après un événement vérifié) ; `tests/e2e/iga-marketplace-matching.spec.ts` (spécialité déclarée et persistée, repli "Contacter le Fondateur" toujours visible même sans praticien spécialisé) ; non-régression de `iga-evaluation.spec.ts` et `marketplace-auto-formations-ui.spec.ts` (tous deux touchent `/solo/profil`/la page de résultat) ; `tsc --noEmit` propre.
+
 ## 2026-07-08 — IGA multi-référentiel : IGA-E, IGA-A, IGA-J, IGA-AD
 
 Construit en mode autonome sur demande explicite d'Angenor ("travaille maintenant"), à partir de trois documents de référence (`IGA_Philosophie_Vision_Globale.md`, `IGA-J_Fiche_Mesure_v1.md`, `IGA_Fiches_Completes_E_A_AD.md`).

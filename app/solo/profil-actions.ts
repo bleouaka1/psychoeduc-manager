@@ -15,9 +15,12 @@ export async function mettreAJourProfilPublic(formData: FormData): Promise<void>
     : []
   const cv_url = String(formData.get('cv_url') ?? '').trim() || null
   const cv_texte = String(formData.get('cv_texte') ?? '').trim() || null
+  const specialites_dimensions_iga = formData.getAll('specialites_dimensions_iga').map((v) => String(v))
 
   const supabase = await createClient()
-  await supabase.from('profils_publics_formateurs').upsert({ organisation_id: organisation.id, bio: bio || null, specialites, cv_url, cv_texte })
+  await supabase
+    .from('profils_publics_formateurs')
+    .upsert({ organisation_id: organisation.id, bio: bio || null, specialites, specialites_dimensions_iga, cv_url, cv_texte })
 
   revalidatePath('/solo/profil')
 }

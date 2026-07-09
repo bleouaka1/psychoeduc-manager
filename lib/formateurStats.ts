@@ -8,7 +8,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  */
 export type StatsFormateur = {
   organisation: { id: string; nom: string; type_organisation: string; created_at: string }
-  profilPublic: { bio: string | null; specialites: string[]; photo_url: string | null; cv_url: string | null; cv_texte: string | null } | null
+  profilPublic: { bio: string | null; specialites: string[]; specialitesDimensionsIga: string[]; photo_url: string | null; cv_url: string | null; cv_texte: string | null } | null
+  ipp: { score: number; nombreEvenementsVerifies: number } | null
   ancienneteJours: number
   beneficiairesAccompagnes: number
   tauxReussite: number | null
@@ -22,11 +23,12 @@ export type StatsFormateur = {
 }
 
 export async function calculerStatsFormateur(supabase: SupabaseClient, organisationId: string): Promise<StatsFormateur | null> {
-  const [{ data: organisation }, { data: profilPublic }, { data: formationsPubliees }, { data: satisfaction }] = await Promise.all([
+  const [{ data: organisation }, { data: profilPublic }, { data: formationsPubliees }, { data: satisfaction }, { data: ipp }] = await Promise.all([
     supabase.from('organisations').select('id, nom, type_organisation, created_at').eq('id', organisationId).maybeSingle(),
-    supabase.from('profils_publics_formateurs').select('bio, specialites, photo_url, cv_url, cv_texte').eq('organisation_id', organisationId).maybeSingle(),
+    supabase.from('profils_publics_formateurs').select('bio, specialites, specialites_dimensions_iga, photo_url, cv_url, cv_texte').eq('organisation_id', organisationId).maybeSingle(),
     supabase.from('formations').select('id, titre, prix, devise, duree_texte, mode_transmission').eq('organisation_id', organisationId).eq('statut', 'publiee'),
     supabase.from('vue_satisfaction_vendeur').select('note_moyenne, nombre_avis').eq('organisation_id', organisationId).maybeSingle(),
+    supabase.from('vue_ipp').select('score, nombre_evenements_verifies').eq('organisation_id', organisationId).maybeSingle(),
   ])
 
   if (!organisation) return null
@@ -57,8 +59,16 @@ export async function calculerStatsFormateur(supabase: SupabaseClient, organisat
   return {
     organisation,
     profilPublic: profilPublic
-      ? { bio: profilPublic.bio, specialites: profilPublic.specialites ?? [], photo_url: profilPublic.photo_url, cv_url: profilPublic.cv_url, cv_texte: profilPublic.cv_texte }
+      ? {
+          bio: profilPublic.bio,
+          specialites: profilPublic.specialites ?? [],
+          specialitesDimensionsIga: profilPublic.specialites_dimensions_iga ?? [],
+          photo_url: profilPublic.photo_url,
+          cv_url: profilPublic.cv_url,
+          cv_texte: profilPublic.cv_texte,
+        }
       : null,
+    ipp: ipp ? { score: Number(ipp.score), nombreEvenementsVerifies: Number(ipp.nombre_evenements_verifies) } : null,
     ancienneteJours,
     beneficiairesAccompagnes: beneficiairesAccompagnes ?? 0,
     tauxReussite,

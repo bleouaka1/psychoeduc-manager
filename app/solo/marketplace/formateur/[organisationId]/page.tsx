@@ -48,6 +48,11 @@ export default async function ProfilPublicFormateurPage({ params }: { params: Pr
                   ))}
                 </div>
               )}
+              {stats.ipp && (
+                <p className="text-[11.5px] text-text-muted mt-2">
+                  <span className="font-data font-semibold text-accent-teal">{Math.round(stats.ipp.score)}</span> IPP — indice de performance basé sur des résultats vérifiés
+                </p>
+              )}
             </div>
           </div>
           <ContacterFormateur organisationId={stats.organisation.id} nomFormateur={stats.organisation.nom} />

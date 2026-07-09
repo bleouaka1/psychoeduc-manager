@@ -15,6 +15,17 @@ export default async function SoloProfilPage() {
   const stats = await calculerStatsFormateur(supabase, organisation.id)
   if (!stats) return null
 
+  // Une dimension peut porter des libellés légèrement différents entre référentiels
+  // IGA (ex. "Emploi / activité" vs "Emploi / activité professionnelle") — un seul
+  // libellé retenu par code pour la liste de spécialités, cf. PLAN_IGA_MARKETPLACE_MATCHING.md.
+  const { data: dimensionsBrutes } = await supabase
+    .from('dimensions_iga')
+    .select('code, nom')
+    .in('referentiel_id', (await supabase.from('referentiels_iga').select('id').in('code', ['iga_e', 'iga_a', 'iga_j', 'iga_ad'])).data?.map((r: any) => r.id) ?? [])
+  const dimensionsIga = Array.from(new Map((dimensionsBrutes ?? []).map((d: any) => [d.code, d.nom])).entries())
+    .map(([code, nom]) => ({ code, nom }))
+    .sort((a, b) => a.nom.localeCompare(b.nom))
+
   return (
     <>
       <PageHeader eyebrowIcon={IdCard} eyebrowText="Mon espace Solo" title="Profil public" subtitle="Ce que les élèves et acheteurs potentiels voient de vous sur la marketplace." />
@@ -46,6 +57,12 @@ export default async function SoloProfilPage() {
                   </span>
                 ))}
               </div>
+            )}
+            {stats.ipp && (
+              <p className="text-[11.5px] text-text-muted mt-2">
+                <span className="font-data font-semibold text-accent-teal">{stats.ipp.score}</span> IPP — indice de performance basé sur des résultats vérifiés
+                {stats.ipp.nombreEvenementsVerifies === 0 && ' (base neutre, aucun événement vérifié pour l’instant)'}
+              </p>
             )}
           </div>
         </div>
@@ -85,6 +102,27 @@ export default async function SoloProfilPage() {
               placeholder="ex. Gestion des émotions, Insertion professionnelle, Couture"
               className="w-full bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
             />
+          </div>
+          <div>
+            <label className="text-text-muted text-xs mb-1.5 block">
+              Spécialités IGA (dimensions sur lesquelles vous êtes recommandé aux bénéficiaires en difficulté)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {dimensionsIga.map((dim) => (
+                <label
+                  key={dim.code}
+                  className="flex items-center gap-1.5 text-[12px] text-text-muted bg-bg-surface border border-border-soft rounded-full px-3 py-1.5 cursor-pointer has-[:checked]:border-accent-gold-dim has-[:checked]:text-text-primary"
+                >
+                  <input
+                    type="checkbox"
+                    name="specialites_dimensions_iga"
+                    value={dim.code}
+                    defaultChecked={stats.profilPublic?.specialitesDimensionsIga.includes(dim.code)}
+                  />
+                  {dim.nom}
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <label className="text-text-muted text-xs mb-1 block">Lien vers un CV (PDF hébergé ailleurs — pas d'upload direct pour l'instant)</label>

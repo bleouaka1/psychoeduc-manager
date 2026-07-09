@@ -1,3 +1,13 @@
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-09 (Mécanisme IGA → Marketplace)
+
+## Résumé (lisible en 30 secondes) — Mécanisme IGA → Marketplace : spécialités, IPP, recommandations (`PLAN_IGA_MARKETPLACE_MATCHING.md`)
+- **Écart réel trouvé** : le document source affirmait l'IPP (Indice de Performance du Praticien) "déjà prévu dans l'architecture" — vérifié faux, aucune trace nulle part. Construit de zéro.
+- **IPP en registre append-only** (`evenements_ipp` + vue calculée `vue_ipp`, jamais de score modifiable en place) — même principe que l'argent (Étape 2/15). Écriture réservée au Fondateur (seul rôle qui "vérifie" un témoignage/résultat). Baseline neutre à 50/100 pour tout praticien sans historique.
+- **Spécialités par dimension IGA** déclarables sur `/solo/profil` (`profils_publics_formateurs.specialites_dimensions_iga`, colonne additive — le champ texte libre `specialites` existant reste pour l'affichage humain).
+- **Moteur de recommandation** sur la page de résultat d'évaluation IGA : conseil générique statique + liste des praticiens spécialisés triés par IPP pour chaque dimension faible, toujours doublé d'un bouton "Contacter le Fondateur" (jamais bloquant si la base de praticiens est vide — point de vigilance explicite du document source).
+- **Différé, signalé, non construit en silence** : formulaire de soumission de témoignage/résultat + interface d'approbation Fondateur dédiée — l'ajout d'un événement IPP reste possible dès maintenant par le Fondateur via SQL direct en attendant cette UI. Corrélation automatique avec le module Réussites également différée (delta manuel pour l'instant).
+- Vérifié : `supabase/tests/test_ipp.sql` (baseline à 50, cloisonnement en écriture réservée au Fondateur, mise à jour du score après un événement vérifié), `tests/e2e/iga-marketplace-matching.spec.ts` (déclaration de spécialité persistée, repli "Contacter le Fondateur" toujours visible), non-régression complète (marketplace-auto-formations-ui, iga-evaluation — un vrai conflit de sélecteur trouvé et corrigé entre le nouveau panneau "Mise en relation" et un test existant), `tsc --noEmit` propre.
+
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-08 (IGA multi-référentiel E/A/J/AD)
 
 ## Résumé (lisible en 30 secondes) — IGA multi-référentiel : IGA-E, IGA-A, IGA-J, IGA-AD (`PLAN_IGA_MULTI_REFERENTIEL.md`)
