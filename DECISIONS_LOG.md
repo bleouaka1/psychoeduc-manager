@@ -2,6 +2,32 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-09 (soir) — Messagerie interne (Inbox) : cinq bugs RLS/contrainte trouvés en vérifiant bout en bout
+
+Construit en mode autonome sur demande explicite d'Angenor ("travaille jusqu'à finir ta session seul"), à partir de `CLAUDE-CODE-Messagerie-Interne.md`.
+
+**`messages` étendue plutôt que recréée** : le document proposait une nouvelle table `messages`, qui serait entrée en collision frontale avec celle de l'Étape 20 (déjà étendue 3 fois cette session). `conversation_id`/`type_document`/`statut_demande` ajoutés en colonnes additives ; `type_message` élargi à `'demande_piece'` (4ᵉ élargissement additif de ce même CHECK depuis le début du projet).
+
+**Bénéficiaires/parents-tuteurs non inclus comme participants** : confirmé et re-signalé (déjà noté avant ce document dans `ETAT_PROJET.md`) qu'aucun portail bénéficiaire ni compte parent/tuteur n'existe — construire ces authentifications aurait été une décision structurante à part entière, pas un sous-produit d'une feature de messagerie.
+
+**IPP en registre append-only** déjà établi pour un score de confiance (session précédente) — ici, même philosophie appliquée à `conversation_participants`/RLS : le créateur ne peut ajouter un participant que s'il l'est déjà lui-même (ou est fondateur), la règle fine "bénéficiaire commun" étant vérifiée applicativement (`lib/messagerieInterne.ts`), pas dans la policy elle-même (RLS = garde-fou d'accès, pas moteur de règles métier).
+
+**Cinq bugs réels trouvés et corrigés, tous découverts en vérifiant le cycle complet bout en bout (pas en relisant le code) :**
+
+1. **`INSERT ... RETURNING` sur `conversations` bloqué par sa propre policy SELECT.** Piège RLS classique et peu documenté : Postgres exige implicitement que la ligne retournée par `RETURNING` (ou `.select()` côté Supabase-js) satisfasse la policy SELECT de la table, pas seulement la policy INSERT. Au moment de la création, aucune ligne `conversation_participants` n'existe encore pour le créateur (ajoutée juste après, dans une étape séparée) — `est_participant_conversation(id)` renvoyait donc systématiquement faux pour sa propre conversation fraîchement créée, et ce même avec une policy INSERT `with check(true)` totalement permissive (vérifié explicitement : le problème n'était pas la policy INSERT, il fallait tester avec/sans `RETURNING` pour l'isoler). Corrigé en ajoutant `created_by = auth.uid()` à la policy SELECT — le créateur voit toujours sa propre conversation, participant ou non pas encore.
+
+2. **Insertion groupée de 2 lignes `conversation_participants` en un seul appel `.insert([...])` échouant silencieusement.** Dans un INSERT multi-lignes, chaque ligne est vérifiée par RLS contre l'état de la table AVANT le batch — la ligne du créateur (qui rendrait `est_participant_conversation` vrai pour la ligne suivante) n'est pas visible pour la seconde ligne du même batch. Résultat : la policy de la 2ᵉ ligne échoue, et Postgres annule tout le batch (y compris la 1ʳᵉ ligne, pourtant valide). Aucune erreur n'était vérifiée côté applicatif, donc l'échec passait totalement inaperçu jusqu'à un vrai test bout en bout. Corrigé en deux appels `.insert()` séquentiels (chaque appel voit les effets du précédent, contrairement aux lignes d'un même batch), avec vérification d'erreur sur chacun.
+
+3. **`messages.contenu` (NOT NULL depuis l'Étape 20) recevait `null`** quand une demande de pièce était envoyée sans note. Corrigé par un texte par défaut (`Demande de pièce : <type>`) plutôt que d'assouplir la contrainte NOT NULL existante.
+
+4. **`organisation_fondateur()` non déterministe dès que plusieurs comptes portent le rôle fondateur.** Triait par ancienneté croissante — en environnement de dev/test, le compte réel d'Angenor (le plus ancien) l'emportait toujours sur le compte fixture `e2e-fondateur-fixture` créé plus tard pour les tests, faisant échouer toute vérification utilisant ce compte de test. Aucun impact en production (un seul vrai fondateur y existe structurellement), mais corrigé pour un comportement déterministe : tri par ancienneté décroissante.
+
+5. **`destinataire_id` jamais renseigné sur une demande de pièce**, bloquant silencieusement sa propre mise à jour de statut (`en_attente` → `recu`) par la policy `messages_update` déjà existante depuis l'Étape 20 (`is_fondateur() OR destinataire_id = auth.uid() OR peut_modifier(...)`) — un compte Solo n'a `peut_modifier` sur aucun module `messages` (seul le rôle `fondateur` en dispose dans le seed de permissions de l'Étape 20), donc sans `destinataire_id` pointant vers lui, la mise à jour de statut était silencieusement filtrée à zéro ligne affectée (Supabase-js ne remonte pas d'erreur pour un UPDATE RLS qui ne matche aucune ligne). Corrigé en résolvant systématiquement l'autre participant de la conversation comme `destinataire_id` à la création de la demande.
+
+**Un vrai bug de test trouvé au passage** : le test utilisait `getByText('Conversation', {exact:false})` pour retrouver la conversation côté Solo — matchait en réalité l'en-tête "Conversations" du panneau de gauche plutôt que la ligne de conversation elle-même (les comptes de test fixture n'ont pas de `nom`/`prenoms` renseignés sur leur profil, donc le nom de fallback affiché était vide, pas littéralement "Conversation"). Corrigé en réutilisant l'id de conversation capturé depuis l'URL de navigation du côté Solo initial plutôt qu'un sélecteur textuel fragile.
+
+**Vérification** : `supabase/tests/test_messagerie_interne.sql` (cloisonnement RLS : un tiers non-participant ne voit ni la conversation ni ses messages, le fondateur voit tout en lecture sans être participant, contrainte check sur `statut_demande`) ; `tests/e2e/messagerie-interne.spec.ts` (cycle complet bout en bout : ouverture depuis la fiche bénéficiaire → conversation créée avec le Fondateur → demande de pièce → réponse Solo avec pièce jointe → statut passé à "reçue", vérifié des deux côtés) ; suite complète Playwright rejouée sans régression ; `tsc --noEmit` propre.
+
 ## 2026-07-09 — Mécanisme IGA → Marketplace : spécialités, IPP, recommandations
 
 Construit en mode autonome sur demande explicite d'Angenor ("travaille seul jusqu'à finir"), à partir d'`IGA_Mecanisme_Marketplace.md`.

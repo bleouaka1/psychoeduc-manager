@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { Search, Bell, MessageSquare, Repeat } from 'lucide-react'
 import { logout } from '../../login/actions'
+import { compterMessagesNonLus } from '@/lib/messagerieInterne'
 
-export default function Topbar({ email }: { email?: string | null }) {
+export default async function Topbar({ email }: { email?: string | null }) {
+  const nonLus = await compterMessagesNonLus()
+
   return (
     <header className="flex items-center gap-4 px-8 py-4 relative z-10">
       <div className="flex-1 flex items-center gap-2.5 bg-bg-card border border-border-soft rounded-xl px-4 py-3 max-w-xl">
@@ -28,13 +31,18 @@ export default function Topbar({ email }: { email?: string | null }) {
       >
         <Bell size={16} />
       </button>
-      <button
-        type="button"
-        className="w-[38px] h-[38px] rounded-[10px] bg-bg-card border border-border-soft flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
-        aria-label="Messages"
+      <Link
+        href="/messagerie"
+        className="relative w-[38px] h-[38px] rounded-[10px] bg-bg-card border border-border-soft flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
+        aria-label="Messagerie interne"
       >
         <MessageSquare size={16} />
-      </button>
+        {nonLus > 0 && (
+          <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+            {nonLus > 9 ? '9+' : nonLus}
+          </span>
+        )}
+      </Link>
 
       <div className="flex items-center gap-2.5 pl-2">
         <div className="w-[38px] h-[38px] rounded-full bg-gradient-to-br from-accent-teal to-accent-teal-dim flex items-center justify-center text-sm font-semibold text-bg-base">

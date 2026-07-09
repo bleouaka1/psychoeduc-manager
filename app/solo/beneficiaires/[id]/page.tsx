@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, CircleDot, Activity, AlertTriangle, CalendarClock, Gauge, NotebookPen } from 'lucide-react'
+import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, CircleDot, Activity, AlertTriangle, CalendarClock, Gauge, NotebookPen, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatusPill, IgaDial } from '../../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../../_lib/getSoloOrg'
@@ -7,6 +7,7 @@ import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire } from './
 import { creerEntretien } from './entretiens/actions'
 import { chargerContactsBeneficiaire } from '@/lib/messagerieDirecteServer'
 import { EnvoyerMessageModal } from '../../_components/EnvoyerMessageModal'
+import { ouvrirConversationBeneficiaire } from '../../../messagerie/actions'
 import { REFERENTIEL_LABEL, type CodeReferentielIga } from '@/lib/iga'
 
 const TYPE_ENTRETIEN_LABEL: Record<string, string> = { general: 'Général', specialise: 'Spécialisé' }
@@ -81,6 +82,14 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
               formateursResponsables={contacts.formateursResponsables}
               modeWhatsApp={organisation.mode_whatsapp_defaut}
             />
+            <form action={ouvrirConversationBeneficiaire.bind(null, id, organisation.id)}>
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 bg-bg-card border border-border-soft text-text-primary text-[13px] font-medium px-4 py-2.5 rounded-full"
+              >
+                <Inbox size={14} /> Messagerie interne
+              </button>
+            </form>
             <Link
               href={`/solo/beneficiaires/${id}/rapport`}
               target="_blank"

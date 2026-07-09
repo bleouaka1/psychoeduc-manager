@@ -23,6 +23,7 @@ const ROUTES = [
   '/ia',
   '/audit',
   '/support',
+  '/messagerie',
   '/parametres',
   '/statistiques',
   '/solo',
@@ -34,6 +35,7 @@ const ROUTES = [
   '/solo/revenus',
   '/solo/profil',
   '/solo/parametres',
+  '/solo/messagerie',
 ]
 
 test('toutes les pages du menu latéral se chargent sans erreur JS ni erreur serveur', async ({ page }) => {

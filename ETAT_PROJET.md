@@ -1,3 +1,31 @@
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-09 (soir, Messagerie interne)
+
+## Résumé (lisible en 30 secondes) — Messagerie interne / Inbox (`PLAN_MESSAGERIE_INTERNE.md`)
+- Nouveau système de conversations threadées entre comptes réels (Fondateur ↔ Solo/Structure/Employeur, ou
+  staff ↔ staff partageant un bénéficiaire commun) : `/messagerie` (Cockpit Fondateur) et `/solo/messagerie`
+  (Compte Solo), point d'entrée "Ouvrir la messagerie interne" depuis la fiche bénéficiaire.
+- **Demande de pièce justificative** (Fondateur uniquement) avec suivi de statut en_attente/reçue, pièces
+  jointes via bucket Storage privé (`messagerie-pieces-jointes`) et URL signée 5 minutes, jamais d'URL
+  permanente stockée. Badge non-lus dans le Topbar (icône déjà présente, jamais câblée jusqu'ici) et `SoloTabs`.
+- **Écart documenté avant construction** : "chaque profil (bénéficiaire, parent/tuteur...) dispose d'une boîte
+  de réception" n'est réalisable aujourd'hui que pour les comptes ayant une authentification réelle (staff +
+  Fondateur) — aucun portail bénéficiaire, aucun compte parent/tuteur n'existe dans ce projet. Non construit
+  ici (décision structurante déjà signalée avant ce document), juste documenté à nouveau.
+- **`messages` étendue plutôt que recréée** (le document proposait une nouvelle table `messages` en collision
+  avec celle de l'Étape 20) : `conversation_id`, `type_document`, `statut_demande` additifs.
+- **Cinq bugs RLS/contrainte réels trouvés et corrigés en vérifiant bout en bout** (détail complet dans
+  `DECISIONS_LOG.md`) : (1) `INSERT ... RETURNING` sur `conversations` bloqué par la policy SELECT (le créateur
+  n'était pas encore visible comme participant de sa propre conversation) ; (2) insertion groupée de 2 lignes
+  `conversation_participants` en un seul appel échouant silencieusement (une ligne d'un batch ne voit jamais
+  les autres lignes du même batch pour l'évaluation RLS) ; (3) `messages.contenu` NOT NULL violé quand aucune
+  note n'accompagne une demande de pièce ; (4) `organisation_fondateur()` non déterministe dès que plusieurs
+  comptes portent le rôle fondateur (environnement de test) ; (5) `destinataire_id` jamais renseigné sur une
+  demande de pièce, bloquant silencieusement sa propre mise à jour de statut par la policy `messages_update`
+  existante (Étape 20).
+- Vérifié : `supabase/tests/test_messagerie_interne.sql` (cloisonnement RLS), `tests/e2e/messagerie-interne.spec.ts`
+  (cycle complet ouverture→demande→pièce jointe→statut reçu, bout en bout Fondateur/Solo), suite complète
+  rejouée sans régression, `tsc --noEmit` propre.
+
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-09 (Mécanisme IGA → Marketplace)
 
 ## Résumé (lisible en 30 secondes) — Mécanisme IGA → Marketplace : spécialités, IPP, recommandations (`PLAN_IGA_MARKETPLACE_MATCHING.md`)

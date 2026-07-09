@@ -4,9 +4,10 @@ import { logout } from '../login/actions'
 import { getSoloOrganisation, getIsFondateur } from './_lib/getSoloOrg'
 import SoloTabs from './_components/SoloTabs'
 import { NotificationsBell } from './_components/NotificationsBell'
+import { compterMessagesNonLus } from '@/lib/messagerieInterne'
 
 export default async function SoloLayout({ children }: { children: React.ReactNode }) {
-  const [organisation, isFondateur] = await Promise.all([getSoloOrganisation(), getIsFondateur()])
+  const [organisation, isFondateur, messagesNonLus] = await Promise.all([getSoloOrganisation(), getIsFondateur(), compterMessagesNonLus()])
 
   return (
     <div className="min-h-screen bg-bg-base relative overflow-x-hidden">
@@ -39,7 +40,7 @@ export default async function SoloLayout({ children }: { children: React.ReactNo
 
         {organisation ? (
           <>
-            <SoloTabs />
+            <SoloTabs messagesNonLus={messagesNonLus} />
             {children}
           </>
         ) : (
