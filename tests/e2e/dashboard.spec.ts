@@ -14,10 +14,13 @@ test('le cockpit fondateur affiche les métriques réelles sans erreur JS (une f
   await page.fill('#email', FIXTURE_EMAIL)
   await page.fill('#password', FIXTURE_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/dashboard')
 
   const main = page.getByRole('main')
-  await expect(page.getByText('Cockpit Fondateur')).toBeVisible()
+  // Scopé à <main> : le route announcer d'accessibilité de Next.js (hors <main>) répète
+  // aussi "Cockpit Fondateur" via le <title> de la page, ce qui ferait échouer un
+  // getByText page-entière en "strict mode violation" (2 éléments correspondants).
+  await expect(main.getByText('Cockpit Fondateur')).toBeVisible()
   await expect(main.getByText('Organisations', { exact: true })).toBeVisible()
   await expect(main.getByText('Bénéficiaires', { exact: true })).toBeVisible()
   await expect(main.getByText('Évaluations IGA', { exact: true })).toBeVisible()

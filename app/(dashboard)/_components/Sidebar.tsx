@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  Home,
   LayoutDashboard,
   User,
   Building2,
@@ -32,7 +33,10 @@ import {
 const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
   {
     label: 'Vue d’ensemble',
-    items: [{ href: '/', label: 'Vue générale', icon: LayoutDashboard }],
+    items: [
+      { href: '/', label: 'Accueil', icon: Home },
+      { href: '/dashboard', label: 'Vue générale', icon: LayoutDashboard },
+    ],
   },
   {
     label: 'Clients',

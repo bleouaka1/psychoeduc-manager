@@ -17,7 +17,9 @@ async function connecter(browser: Browser, email: string, password: string) {
   await page.click('button[type="submit"]')
   // Timeout étendu : latence observée vers Supabase Auth sous contention partagée
   // (même constat que la session concurrente, cf. son commit "timeouts explicitement étendus").
-  await expect(page).toHaveURL('http://localhost:3000/', { timeout: LOGIN_TIMEOUT })
+  // Destination post-connexion dépend du rôle (Solo → /solo, Fondateur → /dashboard) —
+  // cette fonction sert les deux, donc on vérifie juste que la connexion a réussi.
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: LOGIN_TIMEOUT })
   return { context, page }
 }
 

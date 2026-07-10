@@ -9,7 +9,7 @@ async function connecter(page: import('@playwright/test').Page) {
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/solo')
 }
 
 // Les fiches formation sont les seuls éléments de classe "py-4" de la page : scoper

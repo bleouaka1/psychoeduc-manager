@@ -4,7 +4,7 @@ const FIXTURE_EMAIL = 'e2e-fixture@psychoeduc-manager.local'
 const FIXTURE_PASSWORD = 'E2eFixtureTest2026!'
 
 const ROUTES = [
-  '/',
+  '/dashboard',
   '/organisations/solo',
   '/organisations/structures',
   '/organisations/employeurs',
@@ -46,7 +46,7 @@ test('toutes les pages du menu latéral se chargent sans erreur JS ni erreur ser
   await page.fill('#email', FIXTURE_EMAIL)
   await page.fill('#password', FIXTURE_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/dashboard')
 
   for (const route of ROUTES) {
     const erreursConsole: string[] = []

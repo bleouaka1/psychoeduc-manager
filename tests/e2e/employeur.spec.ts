@@ -11,7 +11,7 @@ test('un compte Employeur peut créer, modifier, retirer puis supprimer une offr
   await page.fill('#email', EMPLOYEUR_EMAIL)
   await page.fill('#password', EMPLOYEUR_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/employeur')
 
   await page.goto('/employeur')
   await expect(page.getByText('Mes offres', { exact: true }).first()).toBeVisible()

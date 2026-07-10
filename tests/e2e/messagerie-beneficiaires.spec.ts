@@ -11,7 +11,7 @@ test('le modal "Envoyer un message" désactive WhatsApp/Email quand un bénéfic
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/solo')
 
   const nom = 'E2E'
   const prenoms = `MessagerieSansContact${Date.now()}`

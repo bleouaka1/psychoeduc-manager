@@ -12,7 +12,7 @@ test('une formation nouvellement créée apparaît automatiquement, une seule fo
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/', { timeout: 45000 })
+  await expect(page).toHaveURL('http://localhost:3000/solo', { timeout: 45000 })
 
   await page.goto('/solo/formations')
   const titre = `Formation AutoMarket E2E ${Date.now()}`

@@ -13,7 +13,10 @@ async function connecter(browser: Browser, email: string, password: string) {
   await page.fill('#email', email)
   await page.fill('#password', password)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/', { timeout: LOGIN_TIMEOUT })
+  // Destination post-connexion dépend du rôle (Solo → /solo, Fondateur → /dashboard) —
+  // cette fonction sert les deux, donc on vérifie juste que la connexion a réussi
+  // (sortie de /login), pas une destination précise.
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: LOGIN_TIMEOUT })
   return { context, page }
 }
 

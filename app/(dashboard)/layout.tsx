@@ -1,6 +1,12 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import Sidebar from './_components/Sidebar'
 import Topbar from './_components/Topbar'
+
+export const metadata: Metadata = {
+  title: 'Cockpit Fondateur — PsychoÉduc Manager',
+  description: 'Cockpit Fondateur — PsychoÉduc Manager',
+}
 
 export default async function DashboardLayout({
   children,

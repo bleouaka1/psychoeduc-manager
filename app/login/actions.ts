@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { finaliserOrganisationEnAttente, resoudreDestinationConnexion } from '@/lib/comptes'
 
 export type LoginState = { error?: string } | undefined
 
@@ -20,7 +21,8 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     return { error: 'Identifiants invalides.' }
   }
 
-  redirect('/')
+  await finaliserOrganisationEnAttente(supabase)
+  redirect(await resoudreDestinationConnexion(supabase))
 }
 
 export async function logout() {

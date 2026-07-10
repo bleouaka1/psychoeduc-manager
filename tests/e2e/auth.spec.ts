@@ -5,8 +5,14 @@ import { test, expect } from '@playwright/test'
 const FIXTURE_EMAIL = 'e2e-fixture@psychoeduc-manager.local'
 const FIXTURE_PASSWORD = 'E2eFixtureTest2026!'
 
-test('un visiteur non authentifié est redirigé vers /login', async ({ page }) => {
+test('un visiteur non authentifié voit la page d\'accueil publique et est redirigé vers /login sur une route protégée', async ({ page }) => {
+  // '/' est la page d'accueil publique (vitrine) depuis l'ajout de la landing page —
+  // le Cockpit Fondateur vit maintenant à /dashboard et reste protégé, lui.
   await page.goto('/')
+  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page.getByRole('heading', { name: /Chaque parcours d'autonomie mérite d'être vu/ })).toBeVisible()
+
+  await page.goto('/dashboard')
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByRole('heading', { name: 'PsychoÉduc Manager' })).toBeVisible()
 })
@@ -30,8 +36,11 @@ test('un identifiant valide connecte et affiche le cockpit fondateur, puis la d�
   await page.fill('#password', FIXTURE_PASSWORD)
   await page.click('button[type="submit"]')
 
-  await expect(page).toHaveURL('http://localhost:3000/')
-  await expect(page.getByText('Cockpit Fondateur')).toBeVisible()
+  await expect(page).toHaveURL('http://localhost:3000/dashboard')
+  // Scopé à <main> : le route announcer d'accessibilité de Next.js (hors <main>) répète
+  // aussi "Cockpit Fondateur" via le <title> de la page, ce qui ferait échouer un
+  // getByText page-entière en "strict mode violation" (2 éléments correspondants).
+  await expect(page.getByRole('main').getByText('Cockpit Fondateur')).toBeVisible()
 
   // le menu est réduit par défaut ; l'ouvrir doit révéler l'email du compte connecté
   await page.click('button[aria-label="Ouvrir le menu"]')

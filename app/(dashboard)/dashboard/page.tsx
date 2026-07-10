@@ -15,7 +15,7 @@ import {
   Trophy,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { PageHeader, Panel, StatCard, StatusPill, EmptyState, IgaDial } from './_components/ui'
+import { PageHeader, Panel, StatCard, StatusPill, EmptyState, IgaDial } from '../_components/ui'
 
 export default async function Home() {
   const supabase = await createClient()

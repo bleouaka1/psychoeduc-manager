@@ -12,7 +12,7 @@ test('badge, page détail, profil formateur et contact fonctionnent de bout en b
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/', { timeout: 45000 })
+  await expect(page).toHaveURL('http://localhost:3000/solo', { timeout: 45000 })
 
   await page.goto('/solo/formations')
   const titre = `Formation Badge E2E ${Date.now()}`
@@ -62,7 +62,7 @@ test('le profil solo peut enregistrer bio, spécialités et CV structuré', asyn
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/', { timeout: 45000 })
+  await expect(page).toHaveURL('http://localhost:3000/solo', { timeout: 45000 })
 
   await page.goto('/solo/profil')
   const cvTexte = `Expérience E2E ${Date.now()}`

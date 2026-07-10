@@ -23,7 +23,7 @@ export default async function SoloLayout({ children }: { children: React.ReactNo
               </span>
             )}
             {isFondateur && (
-              <Link href="/" className="flex items-center gap-1 text-accent-gold hover:underline ml-2">
+              <Link href="/dashboard" className="flex items-center gap-1 text-accent-gold hover:underline ml-2">
                 <LayoutDashboard size={13} /> Cockpit Fondateur
               </Link>
             )}

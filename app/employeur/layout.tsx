@@ -1,4 +1,5 @@
-import { Repeat } from 'lucide-react'
+import Link from 'next/link'
+import { Home, Repeat } from 'lucide-react'
 import { logout } from '../login/actions'
 import { getEmployeurOrganisation } from './_lib/getEmployeurOrg'
 
@@ -14,11 +15,16 @@ export default async function EmployeurLayout({ children }: { children: React.Re
             <Repeat size={14} />
             Contexte : <strong className="text-text-primary">{organisation?.nom ?? 'Mon espace Employeur'}</strong>
           </div>
-          <form action={logout}>
-            <button type="submit" className="text-[13px] text-text-muted hover:text-danger transition-colors">
-              Déconnexion
-            </button>
-          </form>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-1 text-[13px] text-text-muted hover:text-text-primary transition-colors">
+              <Home size={14} /> Accueil
+            </Link>
+            <form action={logout}>
+              <button type="submit" className="text-[13px] text-text-muted hover:text-danger transition-colors">
+                Déconnexion
+              </button>
+            </form>
+          </div>
         </div>
 
         {organisation ? (

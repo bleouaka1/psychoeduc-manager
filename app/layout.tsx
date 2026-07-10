@@ -22,7 +22,7 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "PsychoÉduc Manager",
-  description: "Cockpit Fondateur — PsychoÉduc Manager",
+  description: "Chaque parcours d'autonomie mérite d'être vu dans son entier — logiciel de suivi socio-éducatif.",
 };
 
 export default function RootLayout({

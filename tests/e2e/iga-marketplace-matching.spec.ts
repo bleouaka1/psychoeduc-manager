@@ -11,7 +11,7 @@ test('un compte Solo peut déclarer une spécialité IGA sur son profil et la re
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/solo')
 
   await page.goto('/solo/profil')
   const caseAutonomieEconomique = page.locator('input[name="specialites_dimensions_iga"][value="autonomie_economique"]')
@@ -34,7 +34,7 @@ test('le résultat d\'évaluation IGA propose toujours "Contacter le Fondateur",
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/solo')
 
   const nom = 'E2E'
   const prenoms = `IgaMatching${Date.now()}`

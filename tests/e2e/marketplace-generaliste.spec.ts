@@ -11,7 +11,7 @@ test('un compte Solo peut soumettre une offre produit (en attente de validation)
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/solo')
 
   await page.goto('/solo/marketplace')
   const titre = `Produit E2E ${Date.now()}`
@@ -37,7 +37,7 @@ test('un compte Solo peut modifier puis supprimer définitivement une offre mark
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/solo')
 
   await page.goto('/solo/marketplace')
   const titre = `Produit E2E Edit ${Date.now()}`
@@ -73,7 +73,7 @@ test('le filtre par type sur la marketplace publique fonctionne sans erreur JS',
   await page.fill('#email', SOLO_EMAIL)
   await page.fill('#password', SOLO_PASSWORD)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/solo')
 
   await page.goto('/solo/marketplace')
   await page.getByRole('link', { name: 'Formations & compétences' }).click()
