@@ -3,7 +3,8 @@ import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, Circl
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatusPill, IgaDial } from '../../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../../_lib/getSoloOrg'
-import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire } from './actions'
+import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire, enregistrerAvisAction } from './actions'
+import { Star } from 'lucide-react'
 import { creerEntretien } from './entretiens/actions'
 import { chargerContactsBeneficiaire } from '@/lib/messagerieDirecteServer'
 import { EnvoyerMessageModal } from '../../_components/EnvoyerMessageModal'
@@ -44,12 +45,13 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
 
   const supabase = await createClient()
 
-  const [{ data: beneficiaire }, { data: evaluations }, { data: objectifs }, { data: messages }, { data: entretiens }] = await Promise.all([
+  const [{ data: beneficiaire }, { data: evaluations }, { data: objectifs }, { data: messages }, { data: entretiens }, { data: avis }] = await Promise.all([
     supabase.from('beneficiaires').select('id, nom, prenoms, statut_beneficiaire, created_at').eq('id', id).eq('organisation_id', organisation.id).single(),
     supabase.from('evaluations_iga').select('id, score_global, niveau, date_evaluation, referentiels_iga(code)').eq('beneficiaire_id', id).order('date_evaluation', { ascending: false }),
     supabase.from('objectifs_beneficiaire').select('id, titre, description, statut, date_cible, atteint_le').eq('beneficiaire_id', id).order('ordre').order('created_at'),
     supabase.from('messages').select('id, contenu, created_at, type_message').eq('destinataire_beneficiaire_id', id).order('created_at', { ascending: false }).limit(40),
     supabase.from('entretiens').select('id, type_entretien, statut, date_entretien, created_at').eq('beneficiaire_id', id).order('created_at', { ascending: false }),
+    supabase.from('avis_beneficiaires').select('id, note, texte, statut, declencheur, created_at').eq('beneficiaire_id', id).order('created_at', { ascending: false }),
   ])
 
   if (!beneficiaire) return null
@@ -216,6 +218,50 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
                   Entretien {TYPE_ENTRETIEN_LABEL[e.type_entretien] ?? e.type_entretien} — {formatter.format(new Date(e.date_entretien))}
                 </Link>
                 <StatusPill status={e.statut === 'valide' ? 'ok' : 'idle'}>{e.statut === 'valide' ? 'Validé' : 'Brouillon'}</StatusPill>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Panel title="Avis (satisfaction — Pilier IPP)" icon={Star} className="mb-6">
+        <p className="text-text-muted text-[12px] mb-4">
+          Aucun portail bénéficiaire n'existe encore — enregistrez l'avis recueilli oralement ou par un autre canal au moment d'un jalon.
+        </p>
+        <form action={enregistrerAvisAction.bind(null, id)} className="flex flex-wrap items-end gap-2.5 mb-5">
+          <select name="auteur_type" defaultValue="beneficiaire" className="bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary">
+            <option value="beneficiaire">Bénéficiaire</option>
+            <option value="parent_tuteur">Parent / Tuteur</option>
+          </select>
+          <select name="note" defaultValue="5" className="bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary">
+            {[5, 4, 3, 2, 1].map((n) => (
+              <option key={n} value={n}>
+                {n}/5
+              </option>
+            ))}
+          </select>
+          <input
+            name="texte"
+            placeholder="Témoignage (optionnel)…"
+            className="flex-1 min-w-[220px] bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
+          />
+          <button type="submit" className="bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base font-semibold text-[13px] px-4 py-2 rounded-full">
+            Enregistrer
+          </button>
+        </form>
+        {(avis ?? []).length === 0 ? (
+          <p className="text-text-muted text-sm py-4 text-center">Aucun avis enregistré pour le moment.</p>
+        ) : (
+          <ul className="space-y-2">
+            {(avis ?? []).map((a: any) => (
+              <li key={a.id} className="flex items-center justify-between bg-bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                <div>
+                  <span className="font-data text-accent-gold text-sm mr-2">{a.note}/5</span>
+                  <span className="text-text-primary text-[13px]">{a.texte || '—'}</span>
+                </div>
+                <StatusPill status={a.statut === 'publie' ? 'ok' : a.statut === 'en_verification' ? 'warn' : 'idle'}>
+                  {a.statut === 'publie' ? 'Publié' : a.statut === 'en_verification' ? 'En vérification' : a.statut === 'masque' ? 'Masqué' : 'Retiré'}
+                </StatusPill>
               </li>
             ))}
           </ul>

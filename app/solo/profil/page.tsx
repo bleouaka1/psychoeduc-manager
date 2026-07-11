@@ -1,10 +1,32 @@
-import { IdCard, Star, Users, CalendarClock, ShoppingBag, TrendingUp, ShieldCheck, FileText } from 'lucide-react'
+import { IdCard, Star, Users, CalendarClock, ShoppingBag, TrendingUp, ShieldCheck, FileText, Gauge } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatCard } from '../../(dashboard)/_components/ui'
 import { getSoloOrganisation, getIsFondateur } from '../_lib/getSoloOrg'
 import { mettreAJourProfilPublic } from '../profil-actions'
 import { calculerStatsFormateur } from '@/lib/formateurStats'
+import { calculerIppOrganisation } from '@/lib/ippServer'
 import { UploadPhotoProfil } from '../_components/UploadPhotoProfil'
+
+const PILIER_LABEL: Record<string, string> = {
+  impactReel: 'Impact réel',
+  qualiteSuivi: 'Qualité et régularité du suivi',
+  rigueurDocumentaire: 'Rigueur documentaire',
+  satisfaction: 'Satisfaction bénéficiaires',
+}
+
+function BarrePilier({ label, valeur }: { label: string; valeur: number | null }) {
+  return (
+    <div>
+      <div className="flex justify-between text-[12px] mb-1">
+        <span className="text-text-muted">{label}</span>
+        <span className="font-data text-text-primary">{valeur != null ? `${Math.round(valeur)}/100` : '—'}</span>
+      </div>
+      <div className="h-1.5 bg-bg-surface rounded-full overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-accent-gold to-accent-gold-dim rounded-full" style={{ width: `${valeur ?? 0}%` }} />
+      </div>
+    </div>
+  )
+}
 
 export default async function SoloProfilPage() {
   const organisation = await getSoloOrganisation()
@@ -14,6 +36,7 @@ export default async function SoloProfilPage() {
   const supabase = await createClient()
   const stats = await calculerStatsFormateur(supabase, organisation.id)
   if (!stats) return null
+  const ipp = await calculerIppOrganisation(supabase, organisation.id)
 
   // Une dimension peut porter des libellés légèrement différents entre référentiels
   // IGA (ex. "Emploi / activité" vs "Emploi / activité professionnelle") — un seul
@@ -58,18 +81,30 @@ export default async function SoloProfilPage() {
                 ))}
               </div>
             )}
-            {stats.ipp && (
-              <p className="text-[11.5px] text-text-muted mt-2">
-                <span className="font-data font-semibold text-accent-teal">{stats.ipp.score}</span> IPP — indice de performance basé sur des résultats vérifiés
-                {stats.ipp.nombreEvenementsVerifies === 0 && ' (base neutre, aucun événement vérifié pour l’instant)'}
-              </p>
-            )}
           </div>
         </div>
         {!stats.badgeVerifie && (
           <p className="text-text-muted text-[11.5px] border-t border-border-soft pt-3 mt-1">
             Badge « Vérifié » non obtenu : ajoutez une photo et une bio, et publiez au moins une formation pour l'obtenir.
           </p>
+        )}
+      </Panel>
+
+      <Panel title="Indice de Performance Pédagogique (IPP)" icon={Gauge} className="mb-6">
+        {!ipp.echantillonSuffisant || ipp.score == null ? (
+          <p className="text-text-muted text-sm py-3">IPP en cours de constitution — historique encore insuffisant pour un score représentatif.</p>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-3 mb-4">
+              <span className="font-data text-3xl text-accent-gold font-bold">{ipp.score}</span>
+              <span className="text-text-muted text-sm">/100 — {ipp.niveau}</span>
+            </div>
+            <div className="space-y-3 max-w-md">
+              {(Object.entries(ipp.piliers) as [string, number | null][]).map(([code, valeur]) => (
+                <BarrePilier key={code} label={PILIER_LABEL[code]} valeur={valeur} />
+              ))}
+            </div>
+          </>
         )}
       </Panel>
 

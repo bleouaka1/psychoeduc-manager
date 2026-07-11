@@ -28,23 +28,27 @@ test('le modal "Envoyer un message" désactive WhatsApp/Email quand un bénéfic
 
   await page.click('button:has-text("Envoyer un message")')
   await expect(page.getByRole('heading', { name: 'Envoyer un message' })).toBeVisible()
+  // Scopé à l'overlay de la modale : la fiche bénéficiaire porte désormais aussi un
+  // formulaire d'avis (select "auteur_type") avec une option "Parent / Tuteur" —
+  // un getByText page-entière matcherait les deux.
+  const modaleOuverte = page.locator('div.fixed.inset-0.z-50')
 
   // Bénéficiaire tout juste créé : ni téléphone ni email -> catégorie sélectionnable (c'est le
   // seul contact existant) mais les deux boutons d'envoi doivent être désactivés (rendus comme de
   // vrais <button disabled>, pas des <a> sans href qui perdraient leur rôle accessible "link").
-  const boutonWhatsApp = page.getByRole('button', { name: 'WhatsApp' })
-  const boutonEmail = page.getByRole('button', { name: 'Email' })
+  const boutonWhatsApp = modaleOuverte.getByRole('button', { name: 'WhatsApp' })
+  const boutonEmail = modaleOuverte.getByRole('button', { name: 'Email' })
   await expect(boutonWhatsApp).toBeDisabled()
   await expect(boutonEmail).toBeDisabled()
   await expect(boutonWhatsApp).toHaveAttribute('title', 'Aucun contact WhatsApp/Email renseigné')
 
   // Aucun parent/tuteur ni formateur/responsable affecté à ce bénéficiaire tout juste créé.
-  const radioParent = page.locator('input[name="categorie"]').nth(1)
-  const radioFormateur = page.locator('input[name="categorie"]').nth(2)
+  const radioParent = modaleOuverte.locator('input[name="categorie"]').nth(1)
+  const radioFormateur = modaleOuverte.locator('input[name="categorie"]').nth(2)
   await expect(radioParent).toBeDisabled()
   await expect(radioFormateur).toBeDisabled()
-  await expect(page.getByText('Parent / Tuteur')).toBeVisible()
-  await expect(page.getByText('(aucun contact)').first()).toBeVisible()
+  await expect(modaleOuverte.getByText('Parent / Tuteur')).toBeVisible()
+  await expect(modaleOuverte.getByText('(aucun contact)').first()).toBeVisible()
 
   await page.click('button:has-text("Fermer")')
   await expect(page.getByRole('heading', { name: 'Envoyer un message' })).toBeHidden()

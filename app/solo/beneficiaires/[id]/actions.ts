@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSoloOrganisation } from '../../_lib/getSoloOrg'
+import { enregistrerAvisBeneficiaire } from '@/lib/avisBeneficiaires'
 
 export async function ajouterObjectif(beneficiaireId: string, formData: FormData): Promise<void> {
   const organisation = await getSoloOrganisation()
@@ -44,6 +45,21 @@ export async function avancerObjectif(beneficiaireId: string, objectifId: string
     .update({ statut: prochain, atteint_le: prochain === 'atteint' ? new Date().toISOString() : null })
     .eq('id', objectifId)
 
+  revalidatePath(`/solo/beneficiaires/${beneficiaireId}`)
+}
+
+/** Aucun portail bénéficiaire/parent n'existe (cf. PLAN_IPP_PROFIL_FORMATEUR.md) —
+ * le praticien enregistre l'avis pour le compte du bénéficiaire/parent au jalon. */
+export async function enregistrerAvisAction(beneficiaireId: string, formData: FormData): Promise<void> {
+  const organisation = await getSoloOrganisation()
+  if (!organisation) return
+
+  const auteurType = String(formData.get('auteur_type') ?? 'beneficiaire') as 'beneficiaire' | 'parent_tuteur'
+  const note = Number(formData.get('note') ?? 0)
+  const texte = String(formData.get('texte') ?? '')
+  if (!note) return
+
+  await enregistrerAvisBeneficiaire(beneficiaireId, organisation.id, auteurType, null, note, texte, 'jalon')
   revalidatePath(`/solo/beneficiaires/${beneficiaireId}`)
 }
 
