@@ -1,10 +1,12 @@
 import Link from 'next/link'
-import { Search, Bell, MessageSquare, Repeat } from 'lucide-react'
+import { Search, Bell, MessageSquare, Repeat, HeartHandshake } from 'lucide-react'
 import { logout } from '../../login/actions'
 import { compterMessagesNonLus } from '@/lib/messagerieInterne'
+import { compteAAccesBeneficiaire } from '@/lib/comptes'
+import { createClient } from '@/lib/supabase/server'
 
 export default async function Topbar({ email }: { email?: string | null }) {
-  const nonLus = await compterMessagesNonLus()
+  const [nonLus, aAccesBeneficiaire] = await Promise.all([compterMessagesNonLus(), compteAAccesBeneficiaire(await createClient())])
 
   return (
     <header className="flex items-center gap-4 px-8 py-4 relative z-10">
@@ -23,6 +25,14 @@ export default async function Topbar({ email }: { email?: string | null }) {
       >
         <Repeat size={13} /> Mon espace Solo
       </Link>
+      {aAccesBeneficiaire && (
+        <Link
+          href="/mon-espace"
+          className="flex items-center gap-1.5 text-[13px] text-text-muted hover:text-accent-gold border border-border-soft rounded-full px-3.5 py-2 transition-colors"
+        >
+          <HeartHandshake size={13} /> Mon espace bénéficiaire
+        </Link>
+      )}
 
       <button
         type="button"

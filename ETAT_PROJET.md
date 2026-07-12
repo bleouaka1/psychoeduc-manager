@@ -1,3 +1,12 @@
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-12 (Capital social bénéficiaire, Phase 5/6)
+
+## Résumé (lisible en 30 secondes) — Capital social bénéficiaire (`CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §7, Phase 5)
+- Nouvelle table `relations_capital_social`, distincte du module Étape 11 (`evaluations_capital_social`, vue praticien d'un score évalué manuellement) déjà existant et non touché — collision de nom déjà anticipée en Phase 1.
+- Demande + confirmation mutuelle, jamais de recherche libre dans l'annuaire des bénéficiaires : la relation bénéficiaire↔bénéficiaire n'est proposable qu'avec un membre ACTIF d'un même cercle d'apprentissage (contexte partagé déjà construit en Phase 4).
+- Relation bénéficiaire↔formateur/éducateur proposée avec le praticien référent (`premier_membre_actif`, déjà utilisé ailleurs dans ce projet).
+- **Portée volontairement réduite pour cette clôture** (délai serré) : Employeur/Structure différés (le module Insertion professionnelle qui les rendrait pertinents n'existe pas encore) ; pas de page praticien dédiée pour confirmer une relation formateur↔bénéficiaire (la confirmation fonctionne côté schéma/RLS, vérifiée par test SQL, mais aucune UI praticien construite pour l'instant — la cible bénéficiaire↔bénéficiaire, elle, a bien son parcours complet des deux côtés) ; coupure de messagerie après fin d'accompagnement et notification parent/tuteur pour un mineur (§7.3, §7.4) non implémentées, signalées ici plutôt que bâclées.
+- Vérifié : `supabase/tests/test_capital_social_beneficiaire.sql` (self-service, confirmation par la cible, cloisonnement strict), `tests/e2e/capital-social-beneficiaire.spec.ts`, suite complète rejouée, `tsc --noEmit` propre.
+
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-12 (Cercles d'apprentissage, Phase 4/6)
 
 ## Résumé (lisible en 30 secondes) — Cercles d'apprentissage (`CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §5, Phase 4)

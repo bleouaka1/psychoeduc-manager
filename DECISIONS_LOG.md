@@ -2,6 +2,18 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-12 — Capital social bénéficiaire, Phase 5/6 : portée réduite délibérément, signalée plutôt que bâclée
+
+Construit à partir de `CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §7, en fin de session avec un délai serré — décision explicite de réduire la portée plutôt que de construire vite et mal.
+
+**`relations_capital_social` nommée distinctement du module Étape 11.** Déjà anticipé en Phase 1 : `evaluations_capital_social`/`reseau_soutien` restent une vue praticien d'un score évalué manuellement, sans rapport avec ce réseau de relations confirmées mutuellement par le bénéficiaire lui-même.
+
+**Contexte partagé obligatoire pour une relation bénéficiaire↔bénéficiaire, jamais une recherche libre** (§7.2) : uniquement les membres actifs d'un même cercle d'apprentissage (`lib/capitalSocial.ts::chargerCamaradesCercles`) — dépendance directe et volontaire sur la Phase 4, pas un annuaire général des bénéficiaires de l'organisation.
+
+**Réduction de portée assumée, pas silencieuse** : Employeur/Structure différés (le module Insertion professionnelle qui leur donnerait un sens n'existe pas) ; aucune page praticien pour confirmer une relation formateur↔bénéficiaire (RLS/action déjà en place et vérifiées par test SQL, mais pas d'UI praticien construite faute de temps — seul le parcours bénéficiaire↔bénéficiaire est complet des deux côtés dans cette clôture) ; coupure de la messagerie après fin d'accompagnement et notification automatique du parent/tuteur pour une connexion impliquant un mineur (§7.3-7.4) non implémentées.
+
+**Vérification** : `supabase/tests/test_capital_social_beneficiaire.sql` (self-service, confirmation par la cible, cloisonnement strict pour un tiers), `tests/e2e/capital-social-beneficiaire.spec.ts` (définition affichée, proposition de relation avec le praticien référent), suite complète rejouée, `tsc --noEmit` propre.
+
 ## 2026-07-12 — Cercles d'apprentissage, Phase 4/6 : réutilisation de la messagerie interne, deux bugs réels trouvés en vérifiant bout en bout
 
 Construit à partir de `CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §5.

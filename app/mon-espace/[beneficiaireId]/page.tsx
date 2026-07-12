@@ -108,6 +108,14 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
           {cercles.some((c) => c.statut === 'invite') && <p className="text-accent-gold text-[12.5px] mt-2">Invitation(s) en attente →</p>}
         </Link>
       )}
+
+      <Link
+        href={`/mon-espace/${beneficiaireId}/capital-social`}
+        className="block bg-bg-card border border-border-soft rounded-2xl p-6 mt-6 hover:border-accent-gold-dim transition-colors"
+      >
+        <h2 className="font-display font-medium text-[16.5px] text-text-primary">Mon capital social</h2>
+        <p className="text-text-muted text-[12.5px] mt-1">Les personnes et structures qui peuvent t'aider à avancer.</p>
+      </Link>
     </div>
   )
 }

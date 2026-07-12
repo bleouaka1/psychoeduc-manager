@@ -1,13 +1,20 @@
 import Link from 'next/link'
-import { Repeat, LayoutDashboard } from 'lucide-react'
+import { Repeat, LayoutDashboard, HeartHandshake } from 'lucide-react'
 import { logout } from '../login/actions'
 import { getSoloOrganisation, getIsFondateur } from './_lib/getSoloOrg'
 import SoloTabs from './_components/SoloTabs'
 import { NotificationsBell } from './_components/NotificationsBell'
 import { compterMessagesNonLus } from '@/lib/messagerieInterne'
+import { compteAAccesBeneficiaire } from '@/lib/comptes'
+import { createClient } from '@/lib/supabase/server'
 
 export default async function SoloLayout({ children }: { children: React.ReactNode }) {
-  const [organisation, isFondateur, messagesNonLus] = await Promise.all([getSoloOrganisation(), getIsFondateur(), compterMessagesNonLus()])
+  const [organisation, isFondateur, messagesNonLus, aAccesBeneficiaire] = await Promise.all([
+    getSoloOrganisation(),
+    getIsFondateur(),
+    compterMessagesNonLus(),
+    compteAAccesBeneficiaire(await createClient()),
+  ])
 
   return (
     <div className="min-h-screen bg-bg-base relative overflow-x-hidden">
@@ -29,6 +36,11 @@ export default async function SoloLayout({ children }: { children: React.ReactNo
             )}
           </div>
           <div className="flex items-center gap-3">
+            {aAccesBeneficiaire && (
+              <Link href="/mon-espace" className="flex items-center gap-1 text-accent-gold hover:underline text-[13px]">
+                <HeartHandshake size={13} /> Mon espace bénéficiaire
+              </Link>
+            )}
             <NotificationsBell />
             <form action={logout}>
               <button type="submit" className="text-[13px] text-text-muted hover:text-danger transition-colors">
