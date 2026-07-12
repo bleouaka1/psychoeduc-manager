@@ -8,14 +8,22 @@ export type CodeReferentielIga = 'iga_e' | 'iga_a' | 'iga_j' | 'iga_ad'
 /** Suggestion par âge — le praticien reste toujours libre de choisir un autre
  * référentiel (chevauchement 18-25 entre IGA-A et IGA-J résolu par le jugement
  * humain, pas par une règle automatique rigide, cf. PLAN_IGA_MULTI_REFERENTIEL.md). */
-export function suggererReferentiel(dateNaissance: Date | string | null): CodeReferentielIga {
-  if (!dateNaissance) return 'iga_j'
+/** Réutilisé au-delà de l'IGA (ex. vérification d'âge des Cercles d'apprentissage,
+ * lib/cerclesApprentissage.ts) — équivalent TypeScript de la fonction SQL
+ * `calculer_age()` (Étape 5), pour la même logique côté client sans aller-retour DB. */
+export function calculerAgeAns(dateNaissance: Date | string | null): number | null {
+  if (!dateNaissance) return null
   const naissance = typeof dateNaissance === 'string' ? new Date(dateNaissance) : dateNaissance
   const aujourdHui = new Date()
   let age = aujourdHui.getFullYear() - naissance.getFullYear()
   const moisDiff = aujourdHui.getMonth() - naissance.getMonth()
   if (moisDiff < 0 || (moisDiff === 0 && aujourdHui.getDate() < naissance.getDate())) age--
+  return age
+}
 
+export function suggererReferentiel(dateNaissance: Date | string | null): CodeReferentielIga {
+  const age = calculerAgeAns(dateNaissance)
+  if (age == null) return 'iga_j'
   if (age <= 12) return 'iga_e'
   if (age <= 17) return 'iga_a'
   if (age <= 35) return 'iga_j'

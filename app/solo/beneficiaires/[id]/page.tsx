@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, CircleDot, Activity, AlertTriangle, CalendarClock, Gauge, NotebookPen, Inbox } from 'lucide-react'
+import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, CircleDot, Activity, AlertTriangle, CalendarClock, Gauge, NotebookPen, Inbox, Award } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatusPill, IgaDial } from '../../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../../_lib/getSoloOrg'
@@ -113,6 +113,12 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
               className="flex items-center gap-1.5 bg-bg-card border border-border-soft text-text-primary text-[13px] font-medium px-4 py-2.5 rounded-full"
             >
               <FileText size={14} /> Rapport de bilan
+            </Link>
+            <Link
+              href={`/solo/beneficiaires/${id}/icc`}
+              className="flex items-center gap-1.5 bg-bg-card border border-border-soft text-text-primary text-[13px] font-medium px-4 py-2.5 rounded-full"
+            >
+              <Award size={14} /> ICC
             </Link>
           </div>
         }
