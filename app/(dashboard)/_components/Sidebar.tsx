@@ -36,6 +36,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
     items: [
       { href: '/', label: 'Accueil', icon: Home },
       { href: '/dashboard', label: 'Vue générale', icon: LayoutDashboard },
+      { href: '/devenir-beneficiaire', label: 'Devenir bénéficiaire', icon: Compass },
     ],
   },
   {

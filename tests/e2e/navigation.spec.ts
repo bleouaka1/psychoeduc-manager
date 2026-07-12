@@ -36,6 +36,7 @@ const ROUTES = [
   '/solo/profil',
   '/solo/parametres',
   '/solo/messagerie',
+  '/devenir-beneficiaire',
 ]
 
 test('toutes les pages du menu latéral se chargent sans erreur JS ni erreur serveur', async ({ page }) => {

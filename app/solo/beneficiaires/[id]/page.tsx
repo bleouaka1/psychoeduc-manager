@@ -1,15 +1,26 @@
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { UserRound, Target, MessageCircle, FileText, CheckCircle2, Circle, CircleDot, Activity, AlertTriangle, CalendarClock, Gauge, NotebookPen, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatusPill, IgaDial } from '../../../(dashboard)/_components/ui'
 import { getSoloOrganisation } from '../../_lib/getSoloOrg'
-import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire, enregistrerAvisAction } from './actions'
+import { ajouterObjectif, avancerObjectif, envoyerMessageBeneficiaire, enregistrerAvisAction, activerAccesBeneficiaireAction, definirEmailBeneficiaireAction, creerProjetVieAction } from './actions'
+import { KeyRound, Compass } from 'lucide-react'
 import { Star } from 'lucide-react'
 import { creerEntretien } from './entretiens/actions'
 import { chargerContactsBeneficiaire } from '@/lib/messagerieDirecteServer'
 import { EnvoyerMessageModal } from '../../_components/EnvoyerMessageModal'
 import { ouvrirConversationBeneficiaire } from '../../../messagerie/actions'
 import { REFERENTIEL_LABEL, type CodeReferentielIga } from '@/lib/iga'
+import { chargerProjetsVie } from '@/lib/projetVie'
+
+const STATUT_PROJET_LABEL: Record<string, string> = {
+  en_construction: 'En construction',
+  valide: 'Validé',
+  en_cours: 'En cours',
+  atteint: 'Atteint',
+  abandonne: 'Abandonné',
+}
 
 const TYPE_ENTRETIEN_LABEL: Record<string, string> = { general: 'Général', specialise: 'Spécialisé' }
 
@@ -45,18 +56,22 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
 
   const supabase = await createClient()
 
-  const [{ data: beneficiaire }, { data: evaluations }, { data: objectifs }, { data: messages }, { data: entretiens }, { data: avis }] = await Promise.all([
-    supabase.from('beneficiaires').select('id, nom, prenoms, statut_beneficiaire, created_at').eq('id', id).eq('organisation_id', organisation.id).single(),
+  const [{ data: beneficiaire }, { data: evaluations }, { data: objectifs }, { data: messages }, { data: entretiens }, { data: avis }, { data: invitationEnCours }, projetsVie] = await Promise.all([
+    supabase.from('beneficiaires').select('id, nom, prenoms, statut_beneficiaire, created_at, email, profile_id').eq('id', id).eq('organisation_id', organisation.id).single(),
     supabase.from('evaluations_iga').select('id, score_global, niveau, date_evaluation, referentiels_iga(code)').eq('beneficiaire_id', id).order('date_evaluation', { ascending: false }),
-    supabase.from('objectifs_beneficiaire').select('id, titre, description, statut, date_cible, atteint_le').eq('beneficiaire_id', id).order('ordre').order('created_at'),
+    supabase.from('objectifs_beneficiaire').select('id, titre, description, statut, date_cible, atteint_le, projet_vie_id').eq('beneficiaire_id', id).order('ordre').order('created_at'),
     supabase.from('messages').select('id, contenu, created_at, type_message').eq('destinataire_beneficiaire_id', id).order('created_at', { ascending: false }).limit(40),
     supabase.from('entretiens').select('id, type_entretien, statut, date_entretien, created_at').eq('beneficiaire_id', id).order('created_at', { ascending: false }),
     supabase.from('avis_beneficiaires').select('id, note, texte, statut, declencheur, created_at').eq('beneficiaire_id', id).order('created_at', { ascending: false }),
+    supabase.from('invitations_utilisateurs').select('id, token, expire_le').eq('beneficiaire_id', id).eq('statut', 'en_attente').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    chargerProjetsVie(supabase, id),
   ])
 
   if (!beneficiaire) return null
 
   const contacts = await chargerContactsBeneficiaire(id)
+  const enTeteRequete = await headers()
+  const origineSite = `${enTeteRequete.get('x-forwarded-proto') ?? 'https'}://${enTeteRequete.get('host') ?? ''}`
 
   const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
   const derniereEval = evaluations?.[0]
@@ -142,6 +157,83 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
         </Panel>
       </div>
 
+      <Panel title="Accès bénéficiaire" icon={KeyRound} className="mb-6">
+        {beneficiaire.profile_id ? (
+          <p className="text-[13px] text-status-ok flex items-center gap-1.5">
+            <CheckCircle2 size={14} /> Accès actif — ce bénéficiaire peut se connecter à son propre tableau de bord.
+          </p>
+        ) : invitationEnCours ? (
+          <div>
+            <p className="text-text-muted text-[12.5px] mb-2">
+              Invitation en attente (expire le {formatter.format(new Date(invitationEnCours.expire_le))}) — partagez ce lien vous-même (WhatsApp, e-mail…), aucun envoi automatique n'existe :
+            </p>
+            <code className="block bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-[12px] text-accent-teal break-all">
+              {`${origineSite}/inscription-beneficiaire?token=${invitationEnCours.token}`}
+            </code>
+          </div>
+        ) : beneficiaire.email ? (
+          <form action={activerAccesBeneficiaireAction.bind(null, id)}>
+            <p className="text-text-muted text-[12.5px] mb-3">
+              Ce bénéficiaire n'a pas encore d'accès à son propre tableau de bord (Boussole d'Autonomie, projet de vie…).
+            </p>
+            <button type="submit" className="flex items-center gap-1.5 text-[12.5px] font-semibold text-bg-base bg-accent-gold rounded-full px-3.5 py-2">
+              <KeyRound size={13} /> Activer l'accès bénéficiaire
+            </button>
+          </form>
+        ) : (
+          <form action={definirEmailBeneficiaireAction.bind(null, id)} className="flex flex-wrap gap-2.5">
+            <p className="text-text-muted text-[12.5px] w-full mb-1">Ajoutez un e-mail au dossier pour pouvoir activer l'accès bénéficiaire :</p>
+            <input
+              name="email"
+              type="email"
+              required
+              placeholder="email@exemple.com"
+              className="flex-1 min-w-[220px] bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
+            />
+            <button type="submit" className="text-[12.5px] font-semibold text-bg-base bg-accent-gold rounded-full px-3.5 py-2">
+              Enregistrer
+            </button>
+          </form>
+        )}
+      </Panel>
+
+      <Panel title="Projets de vie" icon={Compass} className="mb-6">
+        <p className="text-text-muted text-[12.5px] mb-4">
+          Un bénéficiaire peut avoir plusieurs projets actifs en parallèle (ex. « Trouver une alternance », « Améliorer mon logement »).
+        </p>
+        <form action={creerProjetVieAction.bind(null, id)} className="flex flex-wrap gap-2.5 mb-5">
+          <input
+            name="titre"
+            required
+            placeholder="Nom du projet"
+            className="flex-1 min-w-[200px] bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
+          />
+          <input
+            name="description"
+            placeholder="Description (optionnel)"
+            className="flex-1 min-w-[200px] bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
+          />
+          <button type="submit" className="bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base font-semibold text-[13px] px-4 py-2 rounded-full">
+            Créer
+          </button>
+        </form>
+        {projetsVie.length === 0 ? (
+          <p className="text-text-muted text-sm py-2 text-center">Aucun projet de vie défini pour le moment.</p>
+        ) : (
+          <ul className="space-y-2">
+            {projetsVie.map((p) => (
+              <li key={p.id} className="flex items-center justify-between bg-bg-surface border border-border-soft rounded-xl px-4 py-2.5">
+                <div>
+                  <p className="text-text-primary text-[13.5px] font-medium">{p.titre}</p>
+                  {p.description && <p className="text-text-muted text-[11.5px]">{p.description}</p>}
+                </div>
+                <StatusPill status={p.statut === 'atteint' ? 'ok' : p.statut === 'abandonne' ? 'down' : 'idle'}>{STATUT_PROJET_LABEL[p.statut] ?? p.statut}</StatusPill>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
       <Panel title="Objectifs & jalons" icon={Target} className="mb-6">
         <form action={ajouterObjectif.bind(null, id)} className="flex flex-wrap gap-2.5 mb-5">
           <input
@@ -151,6 +243,16 @@ export default async function FicheBeneficiairePage({ params }: { params: Promis
             className="flex-1 min-w-[220px] bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
           />
           <input name="date_cible" type="date" className="bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim" />
+          {projetsVie.length > 0 && (
+            <select name="projet_vie_id" className="bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim">
+              <option value="">Aucun projet de vie lié</option>
+              {projetsVie.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.titre}
+                </option>
+              ))}
+            </select>
+          )}
           <button type="submit" className="bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base font-semibold text-[13px] px-4 py-2 rounded-full">
             Ajouter
           </button>

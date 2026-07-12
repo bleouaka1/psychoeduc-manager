@@ -4,16 +4,33 @@ export const TYPES_COMPTE_INSCRIPTIBLES = ['solo', 'structure', 'employeur'] as 
 export type TypeCompteInscriptible = (typeof TYPES_COMPTE_INSCRIPTIBLES)[number]
 
 /**
- * Où atterrit un utilisateur juste après connexion, selon le(s) type(s) d'organisation
- * dont il est membre actif. Solo/Employeur ont leur propre console dédiée ; tout le reste
- * (Fondateur, Structure, comptes multi-rôles) utilise la console générale du Cockpit,
- * qui applique déjà son propre cloisonnement par organisation via RLS/`peut_lire`.
+ * Un même profil peut cumuler une organisation (Fondateur/Formateur/...) ET un ou
+ * plusieurs dossiers bénéficiaire actifs (CLAUDE-CODE-COMPTES-MULTIPROFILS.md) —
+ * aucune ligne membres_organisations n'est créée pour un dossier bénéficiaire
+ * (RLS déjà scopée directement par beneficiaires.profile_id = auth.uid(), cf.
+ * PLAN_COMPTES_MULTIPROFILS_DASHBOARD_BENEFICIAIRE.md). Priorité de redirection :
+ * une organisation active passe avant un dossier bénéficiaire seul, mais un
+ * sélecteur de bascule reste disponible dans les deux vues.
  */
-export async function resoudreDestinationConnexion(supabase: SupabaseClient): Promise<string> {
+export async function compteAAccesBeneficiaire(supabase: SupabaseClient): Promise<boolean> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return '/login'
+  if (!user) return false
+  const { count } = await supabase.from('beneficiaires').select('id', { count: 'exact', head: true }).eq('profile_id', user.id)
+  return (count ?? 0) > 0
+}
+
+/** Où atterrit un utilisateur juste après connexion, selon le(s) type(s) d'organisation
+ * dont il est membre actif. Solo/Employeur ont leur propre console dédiée ; tout le reste
+ * (Fondateur, Structure, comptes multi-rôles) utilise la console générale du Cockpit.
+ * Retourne `null` si le profil n'est membre actif d'aucune organisation — utilisé par
+ * le sélecteur de bascule multiprofils pour savoir s'il y a un "côté organisation" à proposer. */
+export async function destinationOrganisationActive(supabase: SupabaseClient): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
 
   const { data } = await supabase
     .from('membres_organisations')
@@ -24,6 +41,20 @@ export async function resoudreDestinationConnexion(supabase: SupabaseClient): Pr
   const types = new Set((data ?? []).map((m: any) => m.organisations?.type_organisation).filter(Boolean))
   if (types.has('solo')) return '/solo'
   if (types.has('employeur')) return '/employeur'
+  if (types.size > 0) return '/dashboard'
+  return null
+}
+
+export async function resoudreDestinationConnexion(supabase: SupabaseClient): Promise<string> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return '/login'
+
+  const destinationOrg = await destinationOrganisationActive(supabase)
+  if (destinationOrg) return destinationOrg
+
+  if (await compteAAccesBeneficiaire(supabase)) return '/mon-espace'
   return '/dashboard'
 }
 
@@ -54,4 +85,26 @@ export async function finaliserOrganisationEnAttente(supabase: SupabaseClient): 
     type_organisation: typeOrganisation,
     created_by: user.id,
   })
+}
+
+/**
+ * Rattache un profil fraîchement authentifié à sa fiche bénéficiaire, si un
+ * token d'invitation en attente a été conservé en user_metadata au moment du
+ * signUp() (cf. app/inscription-beneficiaire/actions.ts). Rejouée sans risque à
+ * chaque connexion (idempotente : no-op dès que le token a déjà été consommé ou
+ * qu'aucun token n'est présent), même principe que finaliserOrganisationEnAttente.
+ * La liaison elle-même passe par une fonction SECURITY DEFINER (finaliser_acces_beneficiaire)
+ * car beneficiaires_update exige peut_modifier(organisation_id), qu'un bénéficiaire
+ * ne peut structurellement jamais satisfaire.
+ */
+export async function finaliserAccesBeneficiaire(supabase: SupabaseClient): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  const token = user.user_metadata?.invitation_beneficiaire_token
+  if (!token) return
+
+  await supabase.rpc('finaliser_acces_beneficiaire', { p_token: token })
 }

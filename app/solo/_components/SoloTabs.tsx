@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, Users, GraduationCap, Wallet, IdCard, CalendarClock, Store, Settings, Inbox, type LucideIcon } from 'lucide-react'
+import { Home, LayoutDashboard, Users, GraduationCap, Wallet, IdCard, CalendarClock, Store, Settings, Inbox, HeartHandshake, type LucideIcon } from 'lucide-react'
 
 const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/', label: 'Accueil', icon: Home },
@@ -14,6 +14,7 @@ const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/solo/calendrier', label: 'Calendrier', icon: CalendarClock },
   { href: '/solo/revenus', label: 'Revenus', icon: Wallet },
   { href: '/solo/profil', label: 'Profil public', icon: IdCard },
+  { href: '/devenir-beneficiaire', label: 'Devenir bénéficiaire', icon: HeartHandshake },
   { href: '/solo/parametres', label: 'Paramètres', icon: Settings },
 ]
 

@@ -27,9 +27,12 @@ test('un compte Solo peut ajouter un bénéficiaire, lui définir un jalon, le f
   // premier accès à cette route dynamique : compilation Turbopack à froid, plus longue que le défaut
   await expect(page).toHaveURL(/\/solo\/beneficiaires\/[\w-]+$/, { timeout: 20000 })
 
+  // Scopé au panneau Objectifs : la fiche bénéficiaire porte aussi un panneau
+  // "Projets de vie" avec son propre input[name="titre"].
+  const panneauObjectifs = page.locator('section', { hasText: 'Objectifs & jalons' })
   const titreObjectif = `Objectif E2E ${Date.now()}`
-  await page.fill('input[name="titre"]', titreObjectif)
-  await page.click('button:has-text("Ajouter")')
+  await panneauObjectifs.locator('input[name="titre"]').fill(titreObjectif)
+  await panneauObjectifs.getByRole('button', { name: 'Ajouter' }).click()
   await page.waitForLoadState('networkidle')
 
   const objectif = page.locator('li').filter({ hasText: titreObjectif })

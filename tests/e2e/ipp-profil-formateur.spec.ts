@@ -39,12 +39,16 @@ test('avis bénéficiaire : soumission, modération Fondateur, puis visibilité 
   await lien.click()
   await expect(page).toHaveURL(/\/solo\/beneficiaires\/[\w-]+$/, { timeout: 20000 })
 
+  // Scopé au panneau Avis : la fiche bénéficiaire porte aussi un panneau "Accès
+  // bénéficiaire" (formulaire e-mail) avec son propre bouton "Enregistrer".
+  const panneauAvis = page.locator('section', { hasText: 'Avis (satisfaction' })
+
   // Avis destiné à être publié
   const texteAPublier = `Avis Publie E2E ${ts}`
-  await page.selectOption('select[name="auteur_type"]', 'beneficiaire')
-  await page.selectOption('select[name="note"]', '5')
-  await page.fill('input[name="texte"]', texteAPublier)
-  await page.getByRole('button', { name: 'Enregistrer' }).click()
+  await panneauAvis.locator('select[name="auteur_type"]').selectOption('beneficiaire')
+  await panneauAvis.locator('select[name="note"]').selectOption('5')
+  await panneauAvis.locator('input[name="texte"]').fill(texteAPublier)
+  await panneauAvis.getByRole('button', { name: 'Enregistrer' }).click()
   await page.waitForLoadState('networkidle')
   const ligneAPublier = page.locator('li').filter({ hasText: texteAPublier })
   await expect(ligneAPublier).toBeVisible()
@@ -52,10 +56,10 @@ test('avis bénéficiaire : soumission, modération Fondateur, puis visibilité 
 
   // Second avis, volontairement laissé non modéré — ne doit jamais apparaître publiquement
   const texteNonPublie = `Avis NonPublie E2E ${ts}`
-  await page.selectOption('select[name="auteur_type"]', 'parent_tuteur')
-  await page.selectOption('select[name="note"]', '3')
-  await page.fill('input[name="texte"]', texteNonPublie)
-  await page.getByRole('button', { name: 'Enregistrer' }).click()
+  await panneauAvis.locator('select[name="auteur_type"]').selectOption('parent_tuteur')
+  await panneauAvis.locator('select[name="note"]').selectOption('3')
+  await panneauAvis.locator('input[name="texte"]').fill(texteNonPublie)
+  await panneauAvis.getByRole('button', { name: 'Enregistrer' }).click()
   await page.waitForLoadState('networkidle')
   const ligneNonPubliee = page.locator('li').filter({ hasText: texteNonPublie })
   await expect(ligneNonPubliee).toBeVisible()
