@@ -1,3 +1,16 @@
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-12 (clôture des 6 phases — Comptes multiprofils + Tableau de bord bénéficiaire)
+
+## Clôture globale — `PLAN_COMPTES_MULTIPROFILS_DASHBOARD_BENEFICIAIRE.md` (6/6 phases)
+Les 6 phases du plan sont construites, vérifiées (SQL + Playwright) et commitées :
+1. Fondations + accès bénéficiaire (`/mon-espace`, invitation, "Devenir bénéficiaire" self-service) — commit `bae61aa`.
+2. Projet de vie (multi, fil d'activité) — commit `bae61aa`.
+3. ICC (Indice de Compétences) — commit `7551218`.
+4. Cercles d'apprentissage — commit `a82ffc6`.
+5. Capital social bénéficiaire (portée réduite, signalée) — commit `f1c5691`.
+6. Bascule multi-profils dans les deux sens — commit `f1c5691`.
+
+Premier vrai portail bénéficiaire du projet, construit sans refonte de schéma (les policies RLS `profile_id = auth.uid()` existaient déjà, jamais exploitées). Chaque phase a son entrée détaillée ci-dessous (décisions, écarts trouvés, bugs corrigés). Différé et signalé plutôt que bâclé, au global : tarification/paiement du test IGA, Employeur/Structure dans le capital social, coupure de messagerie post-accompagnement, notification parent/tuteur pour un mineur, page praticien de confirmation capital social. Une session concurrente travaillait en parallèle sur `app/(dashboard)/beneficiaires/` et `lib/beneficiaires.ts` — non touchés.
+
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-12 (Capital social bénéficiaire, Phase 5/6)
 
 ## Résumé (lisible en 30 secondes) — Capital social bénéficiaire (`CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §7, Phase 5)
