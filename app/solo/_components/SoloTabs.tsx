@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, Users, GraduationCap, Wallet, IdCard, CalendarClock, Store, Settings, Inbox, HeartHandshake, type LucideIcon } from 'lucide-react'
+import { Home, LayoutDashboard, Users, GraduationCap, Wallet, IdCard, CalendarClock, Store, Settings, Inbox, HeartHandshake, Users2, type LucideIcon } from 'lucide-react'
 
 const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/', label: 'Accueil', icon: Home },
   { href: '/solo', label: 'Vue générale', icon: LayoutDashboard },
   { href: '/solo/beneficiaires', label: 'Mes bénéficiaires', icon: Users },
   { href: '/solo/formations', label: 'Mes formations', icon: GraduationCap },
+  { href: '/solo/cercles', label: 'Cercles', icon: Users2 },
   { href: '/solo/marketplace', label: 'Marketplace', icon: Store },
   { href: '/solo/messagerie', label: 'Messagerie', icon: Inbox },
   { href: '/solo/calendrier', label: 'Calendrier', icon: CalendarClock },

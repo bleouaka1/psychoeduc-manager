@@ -2,6 +2,24 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-12 — Cercles d'apprentissage, Phase 4/6 : réutilisation de la messagerie interne, deux bugs réels trouvés en vérifiant bout en bout
+
+Construit à partir de `CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §5.
+
+**Discussion de groupe réutilisant `conversations`/`messages` plutôt qu'un système de chat dédié.** `conversation_participants` supportait déjà nativement plusieurs profils par conversation ; seul `role_participant` était restreint à `('fondateur','staff')` — élargi à `'beneficiaire'` (migration additive). `messages_insert` autorisait déjà `expediteur_id = auth.uid()` sans condition de participation préalable, donc aucune extension RLS nécessaire sur `messages` elle-même.
+
+**Vérification d'âge en TypeScript, jamais un trigger SQL** (`lib/cerclesApprentissage.ts::peutRejoindreCercle`), cohérent avec le principe du projet pour la logique métier. Un cercle `reserve_adultes=true` refuse l'invitation d'un mineur, vérifié à l'action d'invitation, pas seulement affiché côté UI.
+
+**Décrochage silencieux calculé à la lecture, jamais stocké** : dernière activité dérivée du dernier message du membre dans la conversation du cercle (à défaut, la date d'invitation) — même principe "vue plutôt que table dupliquée" que l'IPP/le fil d'activité du Projet de vie.
+
+**Bug réel #1 — récursion RLS infinie entre `cercles_apprentissage_select` et `cercles_membres_select`.** La policy de la première interrogeait `cercles_membres` (vérifier un membre actif), et celle de la seconde interrogeait `cercles_apprentissage` (résoudre `organisation_id` pour `peut_lire`) — boucle infinie détectée par Postgres (`42P17`). Exactement la même classe de bug déjà rencontrée pour la messagerie interne (cf. entrée du 2026-07-09). Corrigé avec la même solution : deux fonctions SECURITY DEFINER (`est_membre_actif_cercle`, `organisation_du_cercle`) qui contournent RLS pour casser la boucle d'évaluation.
+
+**Bug réel #2 — embed PostgREST ambigu, trouvé uniquement en vérifiant bout en bout, jamais en lisant le code.** `messages.select('..., profiles(nom, prenoms)')` échouait silencieusement (`data: null`, jamais une erreur visible dans l'UI) car `messages` a DEUX clés étrangères vers `profiles` (`expediteur_id` et `destinataire_id`) — PostgREST ne peut pas choisir laquelle utiliser pour l'embed sans le préciser. Les messages étaient bien enregistrés en base (confirmé par requête directe) mais la discussion de groupe restait vide à l'affichage, sur les DEUX pages (praticien et bénéficiaire). Diagnostiqué en insérant un marqueur de debug temporaire affichant `messages?.length` (`undefined`, pas `0` — signe d'une requête en erreur plutôt que d'un résultat vide). Corrigé en `profiles!expediteur_id(nom, prenoms)` sur les deux pages.
+
+**Un vrai piège de fixture de test, révélateur d'un usage réel du produit.** Le compte Fondateur de test devenant bénéficiaire (`devenir-beneficiaire.spec.ts`, Phase 1) prend un nom générique "Bénéficiaire" faute de `profiles.nom`/`prenoms` renseignés — collision découverte car **l'utilisateur réel (Angenor) avait déjà testé manuellement la fonctionnalité "Devenir bénéficiaire" sur son propre compte**, créant un second dossier "Bénéficiaire" dans la même organisation fixture. Corrigé en nommant explicitement le profil fixture ("FixtureFondateur E2E") plutôt qu'en évitant le scénario — un signal positif que la fonctionnalité de la Phase 1 fonctionne réellement en usage humain, pas seulement en test automatisé.
+
+**Vérification** : `supabase/tests/test_cercles_apprentissage.sql` (élargissement de `role_participant`, cloisonnement strict pour un tiers non-membre, composition visible entre membres actifs, acceptation d'invitation en self-service), `tests/e2e/cercles-apprentissage.spec.ts` (cycle complet création→invitation→acceptation→discussion bidirectionnelle→signalement→sortie, deux comptes/contextes séparés), suite Playwright complète rejouée, `tsc --noEmit` propre.
+
 ## 2026-07-12 — ICC (Indice de Compétences du Bénéficiaire), Phase 3/6 : le "Savoir-être" du document ne tenait pas dans ce projet
 
 Construit en mode autonome à partir de `CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §4 (Phase 3 de `PLAN_COMPTES_MULTIPROFILS_DASHBOARD_BENEFICIAIRE.md`).

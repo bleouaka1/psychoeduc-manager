@@ -1,3 +1,12 @@
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-12 (Cercles d'apprentissage, Phase 4/6)
+
+## Résumé (lisible en 30 secondes) — Cercles d'apprentissage (`CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §5, Phase 4)
+- Groupes de discussion entre bénéficiaires (`cercles_apprentissage`/`cercles_membres`), réutilisant `conversations`/`messages` (messagerie interne) pour la discussion de groupe — `conversation_participants.role_participant` élargi pour accepter `'beneficiaire'` (jusqu'ici staff-only).
+- Vérification d'âge automatique à l'invitation (`lib/cerclesApprentissage.ts`) : un cercle `reserve_adultes` ne peut jamais recevoir un mineur.
+- Décrochage silencieux détecté à la lecture (dernier message du membre dans la conversation vs seuil de jours) — jamais stocké. Bouton "Signaler" réutilise le système de notifications existant (Étape 20).
+- **Trois vrais bugs trouvés en vérifiant bout en bout** : (1) récursion RLS infinie entre `cercles_apprentissage_select` et `cercles_membres_select` (même classe que le bug déjà rencontré pour la messagerie interne), corrigée par deux fonctions SECURITY DEFINER ; (2) embed PostgREST `profiles(nom, prenoms)` ambigu sur `messages` (deux FK vers `profiles` : `expediteur_id`/`destinataire_id`) — la discussion de groupe restait silencieusement vide malgré des messages bien enregistrés en base, corrigé en `profiles!expediteur_id(...)` ; (3) fixture de test avec un nom générique ("Bénéficiaire") entrant en collision avec un dossier bénéficiaire créé manuellement par l'utilisateur réel via "Devenir bénéficiaire" — corrigé en nommant explicitement le profil fixture.
+- Vérifié : `supabase/tests/test_cercles_apprentissage.sql`, `tests/e2e/cercles-apprentissage.spec.ts` (cycle complet création→invitation→acceptation→discussion→signalement→sortie), suite complète rejouée, `tsc --noEmit` propre.
+
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-12 (ICC — Indice de Compétences, Phase 3/6)
 
 ## Résumé (lisible en 30 secondes) — ICC : Indice de Compétences du Bénéficiaire (`CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §4, Phase 3 de `PLAN_COMPTES_MULTIPROFILS_DASHBOARD_BENEFICIAIRE.md`)

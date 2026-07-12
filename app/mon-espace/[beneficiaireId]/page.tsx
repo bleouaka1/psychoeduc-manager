@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { chargerBoussoleAutonomie, chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
 import { chargerProjetsAvecProgression, chargerFilActivite } from '@/lib/projetVie'
 import { chargerFormationsAvecIcc } from '@/lib/iccServer'
+import { chargerMesCercles } from '@/lib/cerclesApprentissageServer'
 import { NIVEAU_LABEL } from '@/lib/iga'
 import { RadarAutonomie } from '../_components/RadarAutonomie'
 
@@ -11,12 +12,13 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
   const { beneficiaireId } = await params
   const supabase = await createClient()
 
-  const [dossiers, boussole, projets, fil, formationsIcc] = await Promise.all([
+  const [dossiers, boussole, projets, fil, formationsIcc, cercles] = await Promise.all([
     chargerDossiersBeneficiaire(supabase),
     chargerBoussoleAutonomie(supabase, beneficiaireId),
     chargerProjetsAvecProgression(supabase, beneficiaireId),
     chargerFilActivite(supabase, beneficiaireId),
     chargerFormationsAvecIcc(supabase, beneficiaireId),
+    chargerMesCercles(supabase, beneficiaireId),
   ])
   const dossier = dossiers.find((d) => d.id === beneficiaireId)
   if (!dossier) notFound()
@@ -93,6 +95,19 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
           </div>
         </div>
       ))}
+
+      {cercles.length > 0 && (
+        <Link
+          href={`/mon-espace/${beneficiaireId}/cercles`}
+          className="block bg-bg-card border border-border-soft rounded-2xl p-6 hover:border-accent-gold-dim transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="font-display font-medium text-[16.5px] text-text-primary">Cercles d'apprentissage</h2>
+            <span className="text-text-muted text-[11.5px]">{cercles.length} cercle(s)</span>
+          </div>
+          {cercles.some((c) => c.statut === 'invite') && <p className="text-accent-gold text-[12.5px] mt-2">Invitation(s) en attente →</p>}
+        </Link>
+      )}
     </div>
   )
 }
