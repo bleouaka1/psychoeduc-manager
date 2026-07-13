@@ -2,6 +2,31 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-13 — Compte Structure, étape 1/10 : fondations (`PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md`)
+
+Construit en mode autonome sur "vas y". Le document couvre 10 étapes (§6 de sa propre table des matières) — cette session livre l'étape 1 (schéma + RLS, "fondation non négociable avant tout front-end" selon le document lui-même) comme un commit séparé, conformément à l'instruction explicite du document de ne pas fusionner plusieurs modules non liés dans un commit massif.
+
+**Écart structurant majeur, documenté en tête de la migration elle-même (`20260729000000_compte_structure_fondations.sql`) : le schéma proposé par le document (`comptes_structure`, `profils_structure`, `beneficiaires_structure`, `role_structure`, `invitations`, `journal_audit`) duplique presque entièrement le système générique multi-tenant déjà en place depuis l'Étape 1** (`organisations`/`membres_organisations`/`roles_utilisateurs`/`permissions`), déjà utilisé par Solo ET Employeur. Plutôt que de créer une seconde hiérarchie de comptes parallèle :
+- `comptes_structure` → `organisations` (déjà `type_organisation` ∈ {structure, ecole, ong, centre})
+- `profils_structure` → `membres_organisations` + `roles_utilisateurs` (rôles directeur/coordinateur/educateur/formateur déjà présents ; `promoteur` ajouté additivement)
+- `beneficiaires_structure` → `beneficiaires` (déjà utilisée par l'IGA, les entretiens, la marketplace platform-wide — la fragmenter aurait cassé toute cette interopérabilité)
+- `invitations` → `invitations_utilisateurs` (créée à l'Étape 4, **jamais consommée par aucun code jusqu'ici** — première vraie utilisation)
+- `fiches_entretien` → `entretiens` (construite lors d'une session précédente, le document ignorait son existence sous ce nom)
+- `journal_audit` → `audit_logs` (append-only strict depuis l'Étape 1, RPC dédiée)
+- `paiements`/`factures` → renommés `paiements_scolarite`/`factures_scolarite` : une table `paiements` existe déjà pour la facturation SaaS plateforme→organisation (abonnements) — objet métier totalement différent des frais de scolarité structure→bénéficiaire, même nom aurait été trompeur.
+
+Seules cinq tables sont réellement nouvelles (aucun équivalent n'existait) : `etablissements`, `assignations`, `liens_parent_beneficiaire`, `paiements_scolarite`, `factures_scolarite`.
+
+**Un vrai trou de sécurité trouvé et corrigé en écrivant le test RLS, pas anticipé en écrivant le schéma.** Le rôle `formateur` avait `peut_lire=peut_modifier=true` **org-wide** sur `beneficiaires` depuis l'Étape 5 — contredisant frontalement le principe non négociable du document (§3/§4.5) : "l'accès suit l'assignation explicite, jamais le rôle seul." Vérifié avant de corriger que ce rôle n'est référencé nulle part dans le code applicatif (`grep -rn "'formateur'" app/ lib/` → aucun résultat) : Solo utilise toujours `administrateur`, jamais `formateur` — donc cette fonctionnalité en est le premier vrai consommateur, et resserrer l'accès ne casse rien d'existant. Corrigé par (1) mise à `false` de la permission org-wide pour `('formateur','beneficiaires')`, (2) nouvelle policy `beneficiaires_select_formateur_assigne` accordant l'accès uniquement via une ligne `assignations` active (`date_fin is null`). Directeur/coordinateur/éducateur restent en lecture large sur leur établissement (cohérent avec l'exemple RLS du document lui-même, qui ne restreint que le formateur).
+
+**RPC `finaliser_acces_membre_equipe`/`finaliser_acces_parent`** : même principe que `finaliser_acces_beneficiaire` (session comptes multiprofils) — SECURITY DEFINER, consomment un token `invitations_utilisateurs` valide et créent respectivement une adhésion `membres_organisations`+`roles_utilisateurs`, ou une ligne `liens_parent_beneficiaire`. Un bénéficiaire peut avoir plusieurs tuteurs (§4.4) : contrainte unique sur `(parent_profile_id, beneficiaire_id)`, pas sur `beneficiaire_id` seul.
+
+**`nombre_etablissements_payants` (§2.2) volontairement PAS une colonne stockée** : calculable à la demande (`count(établissements actifs) - 2`, min 0), cohérent avec le principe déjà établi ailleurs dans le projet ("vue plutôt que table dupliquée").
+
+**Vérification** : `supabase/tests/test_compte_structure_fondations.sql` — formateur assigné voit son bénéficiaire, formateur non assigné de la même organisation ne le voit pas, directeur voit tout son établissement sans assignation, **le parent ne voit jamais aucune fiche d'entretien même marquée `interlocuteur='parent_tuteur'`** (point non négociable §3, vérifié explicitement), parent voit son propre lien, cloisonnement inter-organisations total sur bénéficiaire/entretien/lien parent. `tsc --noEmit` propre (aucun code applicatif touché à cette étape).
+
+**Reste à faire (étapes 2 à 10 du document), volontairement pas dans cette session** : module d'assignation (UI), invitations (UI), tableaux de bord Directeur/Éducateur/Formateur, extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+
 ## 2026-07-12 — Capital social bénéficiaire, Phase 5/6 : portée réduite délibérément, signalée plutôt que bâclée
 
 Construit à partir de `CLAUDE-CODE-DASHBOARD-BENEFICIAIRE.md` §7, en fin de session avec un délai serré — décision explicite de réduire la portée plutôt que de construire vite et mal.

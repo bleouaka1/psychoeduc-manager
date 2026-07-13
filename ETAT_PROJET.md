@@ -1,3 +1,14 @@
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-13 (soir, Compte Structure étape 1/10)
+
+## Résumé (lisible en 30 secondes) — Compte Structure, étape 1/10 : fondations (`PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md`)
+- Schéma + RLS pour le Compte Structure, construits comme une **extension** du système générique multi-tenant existant (organisations/membres_organisations/roles_utilisateurs) plutôt qu'un schéma parallèle — écart majeur par rapport au document source, détaillé dans DECISIONS_LOG.md.
+- 5 nouvelles tables : `etablissements` (multi-site), `assignations` (accès formateur↔bénéficiaire), `liens_parent_beneficiaire`, `paiements_scolarite`, `factures_scolarite`.
+- Extensions additives : `entretiens.interlocuteur`, `documents_beneficiaires.statut`, `presences.justifie/motif`, `membres_organisations.etablissement_id/superviseur_id`, `beneficiaires.etablissement_id`, rôle `promoteur`.
+- **Vrai trou de sécurité corrigé** : le rôle `formateur` avait un accès org-wide à tous les bénéficiaires (jamais utilisé par aucun code existant) — resserré à un accès strictement par assignation active, conforme au principe non négociable du document.
+- RPC `finaliser_acces_membre_equipe`/`finaliser_acces_parent` pour le mécanisme d'invitation unifié (réutilise `invitations_utilisateurs`, jamais consommée jusqu'ici).
+- Vérifié : `supabase/tests/test_compte_structure_fondations.sql` (cloisonnement, accès formateur par assignation, fiches d'entretien jamais exposées à un parent), `tsc --noEmit` propre.
+- **Étapes 2 à 10 du document restent à construire** (module d'assignation UI, invitations UI, tableaux de bord par rôle, Espace Parent, module Gestion Administrative, multi-établissements, audit/rapport d'impact/bascule de cohorte) — non tentées dans cette session, la fondation devait être solide et vérifiée d'abord.
+
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-13 (Suppression/Archives bénéficiaires + refonte /mon-espace + 3 pages Explorer)
 
 ## Résumé (lisible en 30 secondes) — Suppression de bénéficiaires (Cockpit Fondateur) + boîte d'archives
