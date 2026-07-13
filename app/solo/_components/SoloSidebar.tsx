@@ -17,6 +17,7 @@ import {
   HeartHandshake,
   Settings,
   ChevronLeft,
+  Archive,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -53,6 +54,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
     items: [
       { href: '/solo/profil', label: 'Profil public', icon: IdCard },
       { href: '/devenir-beneficiaire', label: 'Devenir bénéficiaire', icon: HeartHandshake },
+      { href: '/solo/archives', label: 'Archives', icon: Archive },
       { href: '/solo/parametres', label: 'Paramètres', icon: Settings },
     ],
   },

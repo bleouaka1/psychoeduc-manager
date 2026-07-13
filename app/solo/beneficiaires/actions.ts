@@ -59,6 +59,13 @@ export async function archiverBeneficiaire(beneficiaireId: string): Promise<void
   revalidatePath('/solo/beneficiaires')
 }
 
+export async function reactiverBeneficiaire(beneficiaireId: string): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('beneficiaires').update({ statut_beneficiaire: 'actif' }).eq('id', beneficiaireId)
+  revalidatePath('/solo/archives')
+  revalidatePath('/solo/beneficiaires')
+}
+
 export async function supprimerBeneficiaire(beneficiaireId: string): Promise<{ error: string | null }> {
   const res = await supprimerBeneficiaireAvecGarde(beneficiaireId)
   if (!res.error) revalidatePath('/solo/beneficiaires')

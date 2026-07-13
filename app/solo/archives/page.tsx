@@ -1,23 +1,19 @@
 import { Archive, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { PageHeader, Panel, DataTable, StatusPill } from '../_components/ui'
-import { reactiverBeneficiaire } from './actions'
+import { PageHeader, Panel, DataTable, StatusPill } from '../../(dashboard)/_components/ui'
+import { getSoloOrganisation } from '../_lib/getSoloOrg'
 import { chargerArchivesBeneficiaires } from '@/lib/beneficiaires'
+import { reactiverBeneficiaire } from '../beneficiaires/actions'
 
-export default async function ArchivesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>
-}) {
+export default async function ArchivesSoloPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q = '' } = await searchParams
-  const supabase = await createClient()
+  const organisation = await getSoloOrganisation()
+  if (!organisation) return null
 
-  // Recherche appliquée après récupération plutôt que via un filtre PostgREST sur le
-  // champ JSONB `donnees_avant` (syntaxe `->>` fragile en `.or()`) — volume attendu
-  // faible pour un journal d'archives, aucun besoin de filtrer côté base.
+  const supabase = await createClient()
   const qNettoye = q.trim().toLowerCase()
 
-  let lignes = await chargerArchivesBeneficiaires(supabase)
+  let lignes = await chargerArchivesBeneficiaires(supabase, organisation.id)
   if (qNettoye) {
     lignes = lignes.filter((l) => l.nom.toLowerCase().includes(qNettoye) || l.prenoms.toLowerCase().includes(qNettoye))
   }
@@ -28,13 +24,13 @@ export default async function ArchivesPage({
     <>
       <PageHeader
         eyebrowIcon={Archive}
-        eyebrowText="Gouvernance"
+        eyebrowText="Mon compte"
         title="Archives"
-        subtitle="Bénéficiaires archivés ou supprimés, tous types d’organisations confondus — consultable par nom et par date. Aucune donnée n'est perdue silencieusement : chaque suppression reste tracée dans le journal d'audit."
+        subtitle="Vos bénéficiaires archivés ou supprimés — consultable par nom et par date."
       />
 
       <Panel title={`${lignes.length} élément(s)`}>
-        <form action="/archives" method="get" className="flex flex-wrap gap-2.5 mb-5">
+        <form action="/solo/archives" method="get" className="flex flex-wrap gap-2.5 mb-5">
           <input
             name="q"
             defaultValue={q}
