@@ -27,7 +27,10 @@ test('un mot de passe invalide affiche une erreur et ne connecte pas', async ({ 
   await expect(page).toHaveURL(/\/login$/)
 })
 
-test('un identifiant valide connecte et affiche le cockpit fondateur, puis la déconnexion ramène à /login', async ({ page }) => {
+test('un identifiant valide connecte et affiche le Cockpit, puis la déconnexion ramène à /login', async ({ page }) => {
+  // Contenu du tableau de bord (vue Fondateur vs vue Structure org-scopée) vérifié
+  // séparément dans dashboard.spec.ts — ce test couvre uniquement la mécanique
+  // connexion/menu/déconnexion, commune aux deux, avec e2e-fixture (compte Structure).
   const erreursConsole: string[] = []
   page.on('pageerror', (err) => erreursConsole.push(err.message))
 
@@ -37,10 +40,7 @@ test('un identifiant valide connecte et affiche le cockpit fondateur, puis la d�
   await page.click('button[type="submit"]')
 
   await expect(page).toHaveURL('http://localhost:3000/dashboard')
-  // Scopé à <main> : le route announcer d'accessibilité de Next.js (hors <main>) répète
-  // aussi "Cockpit Fondateur" via le <title> de la page, ce qui ferait échouer un
-  // getByText page-entière en "strict mode violation" (2 éléments correspondants).
-  await expect(page.getByRole('main').getByText('Cockpit Fondateur')).toBeVisible()
+  await expect(page.getByRole('main')).toBeVisible()
 
   // le menu est réduit par défaut ; l'ouvrir doit révéler l'email du compte connecté
   await page.click('button[aria-label="Ouvrir le menu"]')

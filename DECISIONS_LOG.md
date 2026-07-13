@@ -25,7 +25,17 @@ Seules cinq tables sont réellement nouvelles (aucun équivalent n'existait) : `
 
 **Vérification** : `supabase/tests/test_compte_structure_fondations.sql` — formateur assigné voit son bénéficiaire, formateur non assigné de la même organisation ne le voit pas, directeur voit tout son établissement sans assignation, **le parent ne voit jamais aucune fiche d'entretien même marquée `interlocuteur='parent_tuteur'`** (point non négociable §3, vérifié explicitement), parent voit son propre lien, cloisonnement inter-organisations total sur bénéficiaire/entretien/lien parent. `tsc --noEmit` propre (aucun code applicatif touché à cette étape).
 
-**Reste à faire (étapes 4 à 10 du document)** : tableaux de bord Directeur/Éducateur/Formateur, extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+**Reste à faire (étapes 5 à 10 du document)** : extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+
+## 2026-07-13 — Compte Structure, étape 4/10 : tableau de bord Directeur/Éducateur/Formateur
+
+`/dashboard` sert deux publics distincts depuis cette étape : le Fondateur voit le panorama plateforme existant (**intact, zéro ligne modifiée dans sa logique**) ; tout membre d'une organisation Structure voit à la place un nouveau tableau de bord org-scopé (`StructureDashboard.tsx`, fichier séparé plutôt que branché en plein milieu du composant Fondateur existant — élimine tout risque de régression sur la vue Fondateur en la laissant totalement intouchée). Branchement par `is_fondateur()` puis `getMonOrganisation()`.
+
+**Portée volontairement réduite par rapport au tableau de composants du document (§5)** : Funnel 6 étapes et Classement IPP équipe non inclus dans cette V1 — vérifier précisément quelles tables/vues du parcours (Étapes 10-12) et de l'IPP (session récente `evenements_ipp`/`vue_ipp`) seraient réellement pertinentes à agréger par organisation aurait dépassé le temps raisonnable de cette étape ; le reste du tableau (établissements, bénéficiaires actifs, IGA moyen, présences du jour, répartition de l'équipe par rôle, invitations en attente) est livré et vérifié. Signalé plutôt que construit approximativement.
+
+**Régression trouvée et corrigée avant qu'elle ne devienne un vrai bug fusionné : `e2e-fixture` (compte de test Structure, administrateur, jamais fondateur, utilisé depuis le tout début du projet) faisait déjà, par accident, l'hypothèse qu'il verrait le panorama Fondateur** — vrai uniquement parce que `/dashboard` n'avait jamais eu de branchement par rôle jusqu'ici. `dashboard.spec.ts` et `auth.spec.ts` asserraient tous deux du texte "Cockpit Fondateur" avec ce compte. Corrigé : `dashboard.spec.ts` utilise maintenant `e2e-fondateur-fixture` (vrai rôle `fondateur`) pour la vue plateforme, et un nouveau test dédié vérifie que `e2e-fixture` voit bien son propre tableau de bord Structure et jamais le panorama plateforme ; `auth.spec.ts` recentré sur la mécanique connexion/menu/déconnexion (commune aux deux vues), sans plus dépendre du contenu spécifique d'un des deux tableaux de bord.
+
+**Vérification** : `tests/e2e/dashboard.spec.ts` (les deux vues, avec les deux comptes qui leur correspondent réellement), `tests/e2e/auth.spec.ts`, `tests/e2e/navigation.spec.ts` (aucune erreur JS/HTTP sur `/dashboard` avec un compte Structure), `tsc --noEmit` propre.
 
 ## 2026-07-13 — Compte Structure, étape 2/10 : module d'assignation (UI)
 

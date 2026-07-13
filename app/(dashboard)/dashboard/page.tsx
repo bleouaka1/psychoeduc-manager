@@ -16,9 +16,25 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatCard, StatusPill, EmptyState, IgaDial } from '../_components/ui'
+import { getMonOrganisation } from '../_lib/getMonOrganisation'
+import { StructureDashboard } from './StructureDashboard'
 
+/**
+ * '/dashboard' sert deux publics distincts (§5 du document Compte Structure) : le
+ * Fondateur voit le panorama plateforme (ci-dessous, INCHANGÉ) ; tout membre d'une
+ * organisation Structure (Directeur/Coordinateur/Éducateur/Formateur/Promoteur) voit
+ * à la place son propre tableau de bord org-scopé (StructureDashboard.tsx, nouveau
+ * fichier séparé plutôt que branché en plein milieu de ce composant existant — évite
+ * tout risque de régression sur la vue Fondateur).
+ */
 export default async function Home() {
   const supabase = await createClient()
+
+  const { data: estFondateur } = await supabase.rpc('is_fondateur')
+  if (!estFondateur) {
+    const organisation = await getMonOrganisation()
+    if (organisation) return <StructureDashboard organisation={organisation} />
+  }
 
   const [{ data: dash, error: dashError }, { data: audit }, { data: derniereSauvegarde }, alertesResult] =
     await Promise.all([
