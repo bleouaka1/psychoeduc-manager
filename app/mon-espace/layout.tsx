@@ -20,29 +20,36 @@ export default async function MonEspaceLayout({ children }: { children: React.Re
   const destinationOrg = await destinationOrganisationActive(supabase)
 
   return (
-    <div className="min-h-screen bg-bg-base relative overflow-x-hidden">
+    <div className="mon-espace-theme min-h-screen bg-bg-base relative overflow-x-hidden">
       <div className="ambient-halo" />
-      <div className="relative z-[1] px-6 sm:px-10 py-8 max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-7">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-gold to-accent-gold-dim flex items-center justify-center font-display font-bold text-bg-base text-sm">
+      <div className="relative z-[1] px-6 sm:px-10 py-7 max-w-3xl mx-auto border-b border-border-soft flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-[38px] h-[38px] rounded-[9px] bg-gradient-to-br from-accent-gold to-accent-gold-dim flex items-center justify-center font-cinzel font-bold text-bg-base text-sm">
             PM
           </div>
-          <div className="flex items-center gap-3">
-            {destinationOrg && (
-              <a href={destinationOrg} className="text-[13px] text-accent-gold hover:underline">
-                Basculer vers mon espace organisation
-              </a>
-            )}
-            <form action={logout}>
-              <button type="submit" className="text-[13px] text-text-muted hover:text-danger transition-colors">
-                Déconnexion
-              </button>
-            </form>
-          </div>
+          <p className="font-data text-[11px] tracking-[0.12em] text-text-muted uppercase">PsychoÉduc Manager</p>
         </div>
-
-        {children}
+        <div className="flex items-center gap-6 text-[13px]">
+          {destinationOrg && (
+            <a href={destinationOrg} className="text-accent-gold hover:underline">
+              Basculer vers mon espace organisation
+            </a>
+          )}
+          <form action={logout}>
+            <button type="submit" className="text-text-muted hover:text-danger transition-colors">
+              Déconnexion
+            </button>
+          </form>
+        </div>
       </div>
+
+      <div className="relative z-[1] px-6 sm:px-10 py-11 max-w-3xl mx-auto">{children}</div>
+
+      <footer className="relative z-[1] max-w-3xl mx-auto px-6 sm:px-10 pb-12 pt-6 mt-6 border-t border-border-soft text-center">
+        <p className="font-data text-[10.5px] tracking-[0.1em] text-text-muted uppercase">
+          <span className="text-accent-gold">PsychoÉduc Manager</span> — Mon espace bénéficiaire
+        </p>
+      </footer>
     </div>
   )
 }

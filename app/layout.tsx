@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
+import { Fraunces, Inter, IBM_Plex_Mono, Cinzel } from "next/font/google";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -20,6 +20,14 @@ const plexMono = IBM_Plex_Mono({
   weight: ["500", "600"],
 });
 
+// Utilisée uniquement dans /mon-espace (portail bénéficiaire) via la classe .font-cinzel,
+// n'affecte aucune autre partie de l'app.
+const cinzel = Cinzel({
+  variable: "--font-cinzel-google",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "PsychoÉduc Manager",
   description: "Chaque parcours d'autonomie mérite d'être vu dans son entier — logiciel de suivi socio-éducatif.",
@@ -33,7 +41,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} ${cinzel.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bg-base">{children}</body>
     </html>

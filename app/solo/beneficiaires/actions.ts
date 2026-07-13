@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSoloOrganisation } from '../_lib/getSoloOrg'
+import { supprimerBeneficiaireAvecGarde } from '@/lib/beneficiaires'
 
 export async function ajouterBeneficiaire(formData: FormData): Promise<void> {
   const organisation = await getSoloOrganisation()
@@ -58,28 +59,8 @@ export async function archiverBeneficiaire(beneficiaireId: string): Promise<void
   revalidatePath('/solo/beneficiaires')
 }
 
-/**
- * Suppression définitive, distincte de l'archivage : si un historique existe déjà
- * (évaluation IGA, message, séance), on refuse et on propose d'archiver à la place —
- * vérifié côté serveur, pas seulement dans l'UI.
- */
 export async function supprimerBeneficiaire(beneficiaireId: string): Promise<{ error: string | null }> {
-  const supabase = await createClient()
-
-  const [{ count: nbEvaluations }, { count: nbMessages }, { count: nbSeances }] = await Promise.all([
-    supabase.from('evaluations_iga').select('id', { count: 'exact', head: true }).eq('beneficiaire_id', beneficiaireId),
-    supabase.from('messages').select('id', { count: 'exact', head: true }).eq('destinataire_beneficiaire_id', beneficiaireId),
-    supabase.from('seances').select('id', { count: 'exact', head: true }).eq('beneficiaire_id', beneficiaireId),
-  ])
-
-  const totalHistorique = (nbEvaluations ?? 0) + (nbMessages ?? 0) + (nbSeances ?? 0)
-  if (totalHistorique > 0) {
-    return { error: `Ce bénéficiaire a un historique (${totalHistorique} élément(s) : évaluations, messages ou séances). Archivez-le à la place pour le retirer de vos listes actives sans perdre les données.` }
-  }
-
-  const { error } = await supabase.from('beneficiaires').delete().eq('id', beneficiaireId)
-  if (error) return { error: error.message }
-
-  revalidatePath('/solo/beneficiaires')
-  return { error: null }
+  const res = await supprimerBeneficiaireAvecGarde(beneficiaireId)
+  if (!res.error) revalidatePath('/solo/beneficiaires')
+  return res
 }

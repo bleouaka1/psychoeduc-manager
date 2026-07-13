@@ -1,4 +1,18 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-12 (clôture des 6 phases — Comptes multiprofils + Tableau de bord bénéficiaire)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-13 (Suppression/Archives bénéficiaires + refonte /mon-espace + 3 pages Explorer)
+
+## Résumé (lisible en 30 secondes) — Suppression de bénéficiaires (Cockpit Fondateur) + boîte d'archives
+- `/beneficiaires` (Cockpit Fondateur) : bouton "Supprimer" ajouté, réutilise le garde-fou déjà existant côté Compte Solo (bloqué si historique IGA/messages/séances), factorisé dans `lib/beneficiaires.ts` (`supprimerBeneficiaireAvecGarde`) plutôt que dupliqué.
+- **Nouvelle page `/archives`** (menu Gouvernance) : bénéficiaires archivés + supprimés, consultables par nom/date, **sans nouvelle table** — réutilise le trigger d'audit déjà en place sur `beneficiaires` (`donnees_avant` conserve une copie complète de chaque ligne supprimée). Bouton "Réactiver" sur les archivés.
+
+## Résumé (lisible en 30 secondes) — Refonte design `/mon-espace` + 3 nouvelles pages Explorer (mockup `dashboard-beneficiaire.html`)
+- Palette scopée `.mon-espace-theme` (même principe que `.cockpit-fondateur` — ne pas affecter `/solo`, `/employeur`, `/login` qui partagent les mêmes tokens globaux) + police Cinzel (titres uniquement, `.font-cinzel`), nouvelle couleur `sage`. Radar IGA vide désormais affiché en motif décoratif (octogone pointillé) plutôt qu'un texte seul.
+- **CTA "Commencer mon évaluation IGA" du mockup volontairement pas implémenté tel quel** : contredit le principe déjà établi "aucun test IGA auto-administré" (une évaluation reste toujours conduite par un praticien) — remplacé par un texte informatif.
+- **3 nouvelles pages Explorer construites** (`/mon-espace/[id]/marketplace`, `/insertion`, `/intelligence-economique`) :
+  - Marketplace : réutilise `vue_marketplace_publique` + les Server Actions d'achat déjà existantes (`sInscrireFormation`, `sAchterOffre`), aucune duplication.
+  - Intelligence économique : contenu global déjà curé par le Fondateur (`organisation_id is null`, RLS déjà compatible), version simplifiée pour un mineur (`estMineur()` de `lib/cerclesApprentissage.ts`).
+  - **Insertion professionnelle : écart RLS réel trouvé et corrigé.** `offres_emploi`/`entreprises_partenaires`/`candidatures` n'avaient aucune clause de repli pour un profil bénéficiaire (contrairement aux tables Intelligence économique) — sans correctif, la page aurait semblé fonctionner tout en n'affichant jamais rien (même famille de bug que ICC/projets_vie, sessions précédentes). Migration `20260718000000_insertion_pro_acces_beneficiaire.sql` (policies SELECT additionnelles, scopées par le dossier bénéficiaire propre, jamais par `membres_organisations` qu'un bénéficiaire n'a pas).
+- **Hors périmètre, signalé plutôt que deviné** : les "idées" du document source pour Insertion professionnelle (CV vivant généré, annuaire filtré, candidature en un clic) ne sont pas des spécifications validées — non construites, renvoi vers la messagerie existante pour postuler.
+- Vérifié : `supabase/tests/test_insertion_pro_beneficiaire.sql` (cloisonnement RLS), `tsc --noEmit` propre, toutes les routes testées sans erreur serveur (500).
 
 ## Clôture globale — `PLAN_COMPTES_MULTIPROFILS_DASHBOARD_BENEFICIAIRE.md` (6/6 phases)
 Les 6 phases du plan sont construites, vérifiées (SQL + Playwright) et commitées :

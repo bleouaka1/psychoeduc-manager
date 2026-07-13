@@ -5,7 +5,14 @@ import { REFERENTIEL_LABEL, type CodeReferentielIga } from './iga'
  * Toute la lecture repose sur les policies RLS déjà en place (beneficiaires.profile_id = auth.uid(),
  * répercutée sur evaluations_iga/scores_iga) — jamais de vérification d'appartenance dupliquée ici. */
 
-export type DossierBeneficiaire = { id: string; nom: string; prenoms: string; organisationNom: string }
+export type DossierBeneficiaire = {
+  id: string
+  nom: string
+  prenoms: string
+  organisationId: string
+  organisationNom: string
+  dateNaissance: string | null
+}
 
 export async function chargerDossiersBeneficiaire(supabase: SupabaseClient): Promise<DossierBeneficiaire[]> {
   const {
@@ -13,8 +20,15 @@ export async function chargerDossiersBeneficiaire(supabase: SupabaseClient): Pro
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data } = await supabase.from('beneficiaires').select('id, nom, prenoms, organisations(nom)').eq('profile_id', user.id)
-  return (data ?? []).map((b: any) => ({ id: b.id, nom: b.nom, prenoms: b.prenoms, organisationNom: b.organisations?.nom ?? '' }))
+  const { data } = await supabase.from('beneficiaires').select('id, nom, prenoms, date_naissance, organisation_id, organisations(nom)').eq('profile_id', user.id)
+  return (data ?? []).map((b: any) => ({
+    id: b.id,
+    nom: b.nom,
+    prenoms: b.prenoms,
+    organisationId: b.organisation_id,
+    organisationNom: b.organisations?.nom ?? '',
+    dateNaissance: b.date_naissance,
+  }))
 }
 
 export type DimensionRadar = { nom: string; score: number }

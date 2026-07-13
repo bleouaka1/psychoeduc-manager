@@ -27,6 +27,7 @@ import {
   Store,
   CalendarDays,
   LineChart,
+  Archive,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -73,6 +74,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
   {
     label: 'Gouvernance',
     items: [
+      { href: '/archives', label: 'Archives', icon: Archive },
       { href: '/audit', label: 'Journal d’audit', icon: ScrollText },
       { href: '/support', label: 'Support', icon: LifeBuoy },
       { href: '/parametres', label: 'Paramètres', icon: Settings },
@@ -95,11 +97,11 @@ export default function Sidebar({ email }: { email?: string | null }) {
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-label={collapsed ? 'Ouvrir le menu' : 'Réduire le menu'}
-        className={`absolute top-[22px] -right-[13px] w-[26px] h-[26px] rounded-full bg-bg-card border border-border-soft text-text-muted flex items-center justify-center z-10 transition-transform duration-200 hover:text-text-primary ${
+        className={`absolute top-[26px] -right-[16px] w-[32px] h-[32px] rounded-full bg-gradient-to-br from-accent-gold to-accent-gold-dim text-bg-base ring-4 ring-bg-base flex items-center justify-center z-20 shadow-[0_2px_10px_rgba(212,162,78,0.5)] transition-all duration-200 ease-out hover:scale-110 hover:shadow-[0_4px_18px_rgba(212,162,78,0.7)] active:scale-95 ${
           collapsed ? 'rotate-180' : ''
         }`}
       >
-        <ChevronLeft size={13} />
+        <ChevronLeft size={16} strokeWidth={2.75} />
       </button>
 
       <div className={`flex items-center gap-2.5 mb-6 ${collapsed ? 'justify-center px-0' : 'px-2'}`}>

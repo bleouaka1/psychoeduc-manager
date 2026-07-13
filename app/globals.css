@@ -31,9 +31,12 @@
   --color-status-ok-bg: var(--status-ok-bg);
   --color-status-warn: var(--status-warn);
   --color-status-warn-bg: var(--status-warn-bg);
+  --color-sage: var(--sage);
+  --color-sage-soft: var(--sage-soft);
   --font-display: var(--font-fraunces);
   --font-sans: var(--font-inter);
   --font-data: var(--font-plex-mono);
+  --font-cinzel: var(--font-cinzel-google);
 }
 
 /* Palette premium "Boussole d'autonomie" — scope Cockpit Fondateur uniquement.
@@ -56,6 +59,25 @@
 
   --alert-bg: #1f1509;
   --alert-border: #3a2a12;
+}
+
+/* Palette "Mon espace" (portail bénéficiaire) — scopée à /mon-espace uniquement,
+   même principe que .cockpit-fondateur : ne pas affecter /solo, /employeur, /login. */
+.mon-espace-theme {
+  --bg-base: #0a1220;
+  --bg-surface: #0e1826;
+  --bg-card: #101b2c;
+  --border-soft: #22314a;
+  --accent-gold: #c9a24b;
+  --accent-gold-dim: #a9803a;
+  --text-primary: #ece6d8;
+  --text-muted: #9aa2ae;
+  --sage: #6fa287;
+  --sage-soft: rgba(111, 162, 135, 0.14);
+}
+
+.font-cinzel {
+  font-family: var(--font-cinzel), Georgia, serif;
 }
 
 body {
@@ -90,10 +112,33 @@ h1, h2, h3, .font-display {
   width: 600px;
   height: 600px;
   background: radial-gradient(circle, var(--accent-teal) 0%, transparent 70%);
-  opacity: 0.08;
+  opacity: 0.09;
   filter: blur(60px);
   pointer-events: none;
   z-index: 0;
+}
+
+/* second halo doré, discret — profondeur supplémentaire sans surcharger la scène */
+.ambient-halo::after {
+  content: '';
+  position: fixed;
+  top: 30vh;
+  left: -160px;
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, var(--accent-gold) 0%, transparent 70%);
+  opacity: 0.05;
+  filter: blur(70px);
+}
+
+/* Élévation standard des cartes (Panel/StatCard/IgaDial) : ombre portée douce en
+   plus du léger reflet interne déjà en place — donne du relief sur fond sombre
+   sans dépendre d'une bordure plus contrastée. */
+.card-elevated {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 28px -12px rgba(0, 0, 0, 0.55),
+    0 2px 8px -2px rgba(0, 0, 0, 0.35);
 }
 
 /* second halo, brun chaud, opposé au premier — Cockpit Fondateur uniquement */
