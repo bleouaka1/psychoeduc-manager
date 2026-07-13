@@ -28,6 +28,7 @@ import {
   CalendarDays,
   LineChart,
   Archive,
+  UserCog,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -52,6 +53,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
     label: 'Parcours',
     items: [
       { href: '/beneficiaires', label: 'Bénéficiaires', icon: Users },
+      { href: '/assignations', label: 'Assignations', icon: UserCog },
       { href: '/iga', label: 'IGA', icon: Gauge },
       { href: '/capital-social', label: 'Capital social', icon: HeartHandshake },
       { href: '/agr', label: 'AGR', icon: TrendingUp },
