@@ -8,7 +8,8 @@
 - RPC `finaliser_acces_membre_equipe`/`finaliser_acces_parent` pour le mécanisme d'invitation unifié (réutilise `invitations_utilisateurs`, jamais consommée jusqu'ici).
 - Vérifié : `supabase/tests/test_compte_structure_fondations.sql` (cloisonnement, accès formateur par assignation, fiches d'entretien jamais exposées à un parent), `tsc --noEmit` propre.
 - **Étape 2/10 livrée dans la foulée** : module d'assignation (`/assignations`, Cockpit générique) — l'accès d'un formateur à un bénéficiaire suit désormais réellement, de bout en bout, une assignation active (rien avant, visible après, plus rien après la fin de l'assignation). Deux vrais bugs trouvés en testant (relation PostgREST ambiguë sur `profiles`, faux échec de test dû à un artefact de cache Next.js) — détail dans DECISIONS_LOG.md.
-- **Étapes 3 à 10 du document restent à construire** (invitations UI, tableaux de bord par rôle, Espace Parent, module Gestion Administrative, multi-établissements, audit/rapport d'impact/bascule de cohorte).
+- **Étape 3/10 livrée** : mécanisme d'invitation unifié équipe+parent (`/invitations` pour Directeur/Promoteur, `/invitation?token=...` pour l'accepter — signup ou "Accepter" si déjà connecté). Réutilise `invitations_utilisateurs` (Étape 4, jamais consommée jusqu'ici). Bug pré-existant trouvé et corrigé au passage : `/inscription-beneficiaire` n'était jamais publique dans le middleware, cassant ce parcours silencieusement depuis sa construction.
+- **Étapes 4 à 10 du document restent à construire** (tableaux de bord par rôle, Espace Parent, module Gestion Administrative, multi-établissements, audit/rapport d'impact/bascule de cohorte).
 
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-13 (Suppression/Archives bénéficiaires + refonte /mon-espace + 3 pages Explorer)
 

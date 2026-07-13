@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { finaliserOrganisationEnAttente, finaliserAccesBeneficiaire, resoudreDestinationConnexion } from '@/lib/comptes'
+import { finaliserOrganisationEnAttente, finaliserAccesBeneficiaire, finaliserInvitationGenerale, resoudreDestinationConnexion } from '@/lib/comptes'
 
 export type LoginState = { error?: string } | undefined
 
@@ -23,6 +23,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
 
   await finaliserOrganisationEnAttente(supabase)
   await finaliserAccesBeneficiaire(supabase)
+  await finaliserInvitationGenerale(supabase)
   redirect(await resoudreDestinationConnexion(supabase))
 }
 

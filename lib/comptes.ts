@@ -108,3 +108,26 @@ export async function finaliserAccesBeneficiaire(supabase: SupabaseClient): Prom
 
   await supabase.rpc('finaliser_acces_beneficiaire', { p_token: token })
 }
+
+/**
+ * Équivalent de finaliserAccesBeneficiaire pour les invitations Structure §4.4 (membre
+ * d'équipe ou parent/tuteur) — token conservé dans `invitation_generale_token` plutôt
+ * que `invitation_beneficiaire_token` (mécaniques de rattachement différentes : l'une
+ * met à jour beneficiaires.profile_id, l'autre crée une adhésion ou un lien parent).
+ * Essaie les deux RPC de finalisation : chacune filtre déjà strictement sur son propre
+ * sous-ensemble de role_propose (membre d'équipe = beneficiaire_id IS NULL, parent/tuteur
+ * = beneficiaire_id IS NOT NULL), donc au plus une des deux peut réellement s'appliquer —
+ * pas besoin de lire role_propose côté client pour aiguiller.
+ */
+export async function finaliserInvitationGenerale(supabase: SupabaseClient): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  const token = user.user_metadata?.invitation_generale_token
+  if (!token) return
+
+  await supabase.rpc('finaliser_acces_membre_equipe', { p_token: token })
+  await supabase.rpc('finaliser_acces_parent', { p_token: token })
+}

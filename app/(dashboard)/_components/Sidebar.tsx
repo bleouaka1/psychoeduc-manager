@@ -29,6 +29,7 @@ import {
   LineChart,
   Archive,
   UserCog,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -76,6 +77,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
   {
     label: 'Gouvernance',
     items: [
+      { href: '/invitations', label: 'Invitations', icon: UserPlus },
       { href: '/archives', label: 'Archives', icon: Archive },
       { href: '/audit', label: 'Journal d’audit', icon: ScrollText },
       { href: '/support', label: 'Support', icon: LifeBuoy },

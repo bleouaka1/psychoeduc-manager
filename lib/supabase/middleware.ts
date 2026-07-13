@@ -7,7 +7,7 @@ import { resoudreDestinationConnexion } from '@/lib/comptes'
 // /dashboard (voir DECISIONS_LOG.md). Match exact pour '/' : un `startsWith('/')`
 // rendrait TOUTES les routes publiques par accident.
 const PUBLIC_EXACT_PATHS = ['/']
-const PUBLIC_PREFIX_PATHS = ['/login', '/inscription', '/mesurer-iga']
+const PUBLIC_PREFIX_PATHS = ['/login', '/inscription', '/mesurer-iga', '/inscription-beneficiaire', '/invitation']
 // Un utilisateur déjà connecté n'a aucune raison de revoir un formulaire de connexion/inscription.
 const AUTH_FORM_PATHS = ['/login', '/inscription']
 

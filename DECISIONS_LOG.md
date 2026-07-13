@@ -25,7 +25,7 @@ Seules cinq tables sont réellement nouvelles (aucun équivalent n'existait) : `
 
 **Vérification** : `supabase/tests/test_compte_structure_fondations.sql` — formateur assigné voit son bénéficiaire, formateur non assigné de la même organisation ne le voit pas, directeur voit tout son établissement sans assignation, **le parent ne voit jamais aucune fiche d'entretien même marquée `interlocuteur='parent_tuteur'`** (point non négociable §3, vérifié explicitement), parent voit son propre lien, cloisonnement inter-organisations total sur bénéficiaire/entretien/lien parent. `tsc --noEmit` propre (aucun code applicatif touché à cette étape).
 
-**Reste à faire (étapes 3 à 10 du document), volontairement pas dans cette session** : invitations (UI), tableaux de bord Directeur/Éducateur/Formateur, extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+**Reste à faire (étapes 4 à 10 du document)** : tableaux de bord Directeur/Éducateur/Formateur, extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
 
 ## 2026-07-13 — Compte Structure, étape 2/10 : module d'assignation (UI)
 
@@ -42,6 +42,20 @@ Construit dans la foulée de l'étape 1, commit séparé comme demandé par le d
 **Fixtures de test créées** : `e2e-structure-directeur-fixture@psychoeduc-manager.local` (rôle `directeur`) et `e2e-structure-formateur-fixture@psychoeduc-manager.local` (rôle `formateur`), même organisation `École E2E Structure Fixture`, + un bénéficiaire fixture partagé `Fixture Assignation` (aucune UI de création de bénéficiaire n'existe encore côté Structure — créé directement en SQL, comme documenté dans les limites de l'étape 1).
 
 **Vérification** : `tests/e2e/assignations-structure.spec.ts` (parcours complet à deux navigateurs : formateur ne voit rien avant assignation, ni le formulaire d'assignation auquel il n'a pas droit ; Directeur assigne ; formateur voit le bénéficiaire ; Directeur termine l'assignation ; formateur ne voit plus rien), non-régression `navigation.spec.ts`/`dashboard.spec.ts`/`auth.spec.ts` (le nouveau lien Sidebar et le nouveau helper ne cassent rien), `tsc --noEmit` propre.
+
+## 2026-07-13 — Compte Structure, étape 3/10 : mécanisme d'invitation unifié (UI)
+
+**Réutilise entièrement `invitations_utilisateurs` (Étape 4) plutôt qu'une nouvelle table `invitations`** — cohérent avec la décision de l'étape 1. Généralise `consulter_invitation_beneficiaire` (session comptes multiprofils) en `consulter_invitation`, qui gère n'importe quel `role_propose` plutôt que `'beneficiaire'` seul, et réutilise le même schéma de page publique (`/invitation`, miroir de `/inscription-beneficiaire`) : un visiteur voit le contexte de l'invitation (organisation, rôle, bénéficiaire le cas échéant) puis soit crée un compte, soit — nouveauté par rapport au flux bénéficiaire existant — clique "Accepter" s'il est déjà connecté (un membre d'équipe existant invité à rejoindre une deuxième organisation, ou un parent qui a déjà un compte pour un premier enfant, n'a pas besoin de re-signup).
+
+**Deux nouvelles RPC SECURITY DEFINER (`finaliser_acces_membre_equipe`, `finaliser_acces_parent`)**, appelées soit à la connexion (token différé en `user_metadata.invitation_generale_token`, cas confirmation e-mail requise), soit directement depuis le bouton "Accepter" (cas déjà connecté). Distinction claire par filtre WHERE plutôt que par branchement applicatif : `finaliser_acces_membre_equipe` exige `beneficiaire_id is null`, `finaliser_acces_parent` exige `beneficiaire_id is not null and role_propose in ('parent','tuteur')` — aucun chevauchement possible, donc `finaliserInvitationGenerale()` peut appeler les deux sans jamais risquer d'exécuter la mauvaise.
+
+**Bug pré-existant trouvé en construisant cette étape, pas introduit par elle : `/inscription-beneficiaire` n'a jamais été dans la liste des chemins publics du middleware.** `lib/supabase/middleware.ts` (`PUBLIC_PREFIX_PATHS`) ne contenait que `/login`, `/inscription`, `/mesurer-iga` — un visiteur anonyme suivant un lien d'invitation bénéficiaire aurait donc été redirigé vers `/login` avant même de voir le formulaire d'inscription, cassant silencieusement ce parcours depuis sa construction (session comptes multiprofils). Corrigé au passage en ajoutant `/inscription-beneficiaire` et `/invitation` (nécessaire pour cette étape) à la liste.
+
+**Régénération de token implémentée avec `crypto.randomBytes` côté serveur, pas une valeur `undefined` dans l'objet `.update()`** — première tentative erronée : passer `token: undefined` à un `.update()` supabase-js ne régénère rien (une clé `undefined` est simplement omise du JSON envoyé, la colonne garde sa valeur), corrigé avant même de tester en relisant le code.
+
+**Fixtures de test** : `e2e-invitation-membre-fixture@...` et `e2e-invitation-parent-fixture@...`, comptes existants mais sans aucune adhésion à une organisation (ardoise vierge) — permet de tester le chemin "déjà connecté, accepte via le bouton" sans dépendre de l'envoi réel d'e-mail de confirmation (déjà documenté comme peu fiable en session/quota partagés).
+
+**Vérification** : `tests/e2e/invitations-structure.spec.ts` (invitation équipe + invitation parent, bout en bout à deux navigateurs, y compris la vérification que le lien redevient invalide une fois consommé — protection anti-réutilisation), non-régression `navigation.spec.ts`/`auth.spec.ts`/`inscription.spec.ts`/`assignations-structure.spec.ts`, `tsc --noEmit` propre.
 
 ## 2026-07-12 — Capital social bénéficiaire, Phase 5/6 : portée réduite délibérément, signalée plutôt que bâclée
 
