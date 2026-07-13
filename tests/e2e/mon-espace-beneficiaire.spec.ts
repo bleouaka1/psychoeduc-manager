@@ -18,7 +18,9 @@ test('un bénéficiaire connecté est redirigé vers /mon-espace et voit sa Bous
   await expect(page).toHaveURL(/\/mon-espace\/[\w-]+$/, { timeout: 45000 })
 
   await expect(page.getByRole('heading', { name: 'Bonjour Beneficiaire' })).toBeVisible()
-  await expect(page.getByText("Boussole d'Autonomie")).toBeVisible()
+  // Apostrophe typographique (’) utilisée dans le rendu, pas l'apostrophe droite (') —
+  // regex insensible au type d'apostrophe pour ne pas dépendre d'un choix typographique.
+  await expect(page.getByText(/Boussole d.Autonomie/)).toBeVisible()
   await expect(page.getByText('62', { exact: true })).toBeVisible()
   // Radar SVG rendu avec au moins une dimension (8 pour IGA-J, jamais un total de 8
   // forcé arbitrairement pour un autre référentiel — cf. PLAN_COMPTES_MULTIPROFILS...).
