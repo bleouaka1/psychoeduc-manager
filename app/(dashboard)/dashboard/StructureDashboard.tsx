@@ -36,22 +36,28 @@ export async function StructureDashboard({ organisation }: { organisation: MonOr
 async function VueGouvernance({ organisation }: { organisation: MonOrganisation }) {
   const supabase = await createClient()
   const aujourdHui = new Date().toISOString().slice(0, 10)
+  const estPromoteur = organisation.roles.includes('promoteur')
 
   const [
-    { count: nbEtablissements },
+    { data: etablissementsActifs },
     { count: nbBeneficiaires },
     { data: membres },
     { data: evaluations },
     { data: presencesJour },
     { count: nbInvitationsEnAttente },
+    { data: beneficiairesParEtablissement },
   ] = await Promise.all([
-    supabase.from('etablissements').select('id', { count: 'exact', head: true }).eq('organisation_id', organisation.id).eq('actif', true),
+    supabase.from('etablissements').select('id, nom').eq('organisation_id', organisation.id).eq('actif', true),
     supabase.from('beneficiaires').select('id', { count: 'exact', head: true }).eq('organisation_id', organisation.id).eq('statut_beneficiaire', 'actif'),
-    supabase.from('membres_organisations').select('roles_utilisateurs(role, actif)').eq('organisation_id', organisation.id).eq('statut', 'actif'),
+    supabase.from('membres_organisations').select('etablissement_id, roles_utilisateurs(role, actif)').eq('organisation_id', organisation.id).eq('statut', 'actif'),
     supabase.from('evaluations_iga').select('score_global').eq('organisation_id', organisation.id).order('date_evaluation', { ascending: false }).limit(200),
     supabase.from('presences').select('statut').eq('organisation_id', organisation.id).eq('date_seance', aujourdHui),
     supabase.from('invitations_utilisateurs').select('id', { count: 'exact', head: true }).eq('organisation_id', organisation.id).eq('statut', 'en_attente'),
+    estPromoteur
+      ? supabase.from('beneficiaires').select('etablissement_id').eq('organisation_id', organisation.id).eq('statut_beneficiaire', 'actif')
+      : Promise.resolve({ data: [] as any[] }),
   ])
+  const nbEtablissements = (etablissementsActifs ?? []).length
 
   const repartitionRoles = new Map<string, number>()
   for (const m of membres ?? []) {
@@ -66,6 +72,22 @@ async function VueGouvernance({ organisation }: { organisation: MonOrganisation 
   const presencesParStatut = { present: 0, absent: 0, retard: 0 }
   for (const p of presencesJour ?? []) {
     if (p.statut in presencesParStatut) presencesParStatut[p.statut as keyof typeof presencesParStatut]++
+  }
+
+  // §1/§5 : sélecteur/vue réseau multi-établissements, réservé au rôle Promoteur et
+  // n'apparaît que si plusieurs sites existent — "une structure mono-site ne doit jamais
+  // voir de sélecteur multi-établissements vide". Membres/bénéficiaires sans etablissement_id
+  // renseigné (dossiers créés avant l'étape 9/10) regroupés sous "Non rattaché".
+  const afficherReseau = estPromoteur && nbEtablissements > 1
+  const membresParEtablissement = new Map<string, number>()
+  for (const m of membres ?? []) {
+    const cle = (m as any).etablissement_id ?? '__non_rattache__'
+    membresParEtablissement.set(cle, (membresParEtablissement.get(cle) ?? 0) + 1)
+  }
+  const beneficiairesParEtablissementMap = new Map<string, number>()
+  for (const b of beneficiairesParEtablissement ?? []) {
+    const cle = (b as any).etablissement_id ?? '__non_rattache__'
+    beneficiairesParEtablissementMap.set(cle, (beneficiairesParEtablissementMap.get(cle) ?? 0) + 1)
   }
 
   return (
@@ -122,6 +144,31 @@ async function VueGouvernance({ organisation }: { organisation: MonOrganisation 
           )}
         </Panel>
       </div>
+
+      {afficherReseau && (
+        <Panel title="Réseau d'établissements" icon={Building2} className="mb-5">
+          <ul className="divide-y divide-border-soft/60">
+            {(etablissementsActifs ?? []).map((e: any) => (
+              <li key={e.id} className="py-2.5 flex items-center justify-between text-[13.5px]">
+                <Link href="/etablissements" className="text-accent-gold hover:underline">
+                  {e.nom}
+                </Link>
+                <span className="text-text-muted text-xs">
+                  {beneficiairesParEtablissementMap.get(e.id) ?? 0} bénéficiaire(s) · {membresParEtablissement.get(e.id) ?? 0} membre(s)
+                </span>
+              </li>
+            ))}
+            {(beneficiairesParEtablissementMap.get('__non_rattache__') || membresParEtablissement.get('__non_rattache__')) && (
+              <li className="py-2.5 flex items-center justify-between text-[13.5px]">
+                <span className="text-text-muted italic">Non rattaché à un établissement</span>
+                <span className="text-text-muted text-xs">
+                  {beneficiairesParEtablissementMap.get('__non_rattache__') ?? 0} bénéficiaire(s) · {membresParEtablissement.get('__non_rattache__') ?? 0} membre(s)
+                </span>
+              </li>
+            )}
+          </ul>
+        </Panel>
+      )}
 
       <footer className="mt-10 text-text-muted text-[12.5px] font-display italic text-center">
         PsychoÉduc Manager — Transformer les potentiels en réussites durables.

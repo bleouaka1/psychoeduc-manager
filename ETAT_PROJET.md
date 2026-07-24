@@ -1,4 +1,11 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 8/10 close : Présences, Dossiers, Paiements, Facturation)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 9/10 : Promoteur/multi-établissements)
+
+## Résumé (lisible en 30 secondes) — Compte Structure, étape 9/10 : niveau Promoteur / multi-établissements
+- `/etablissements` (Directeur/Promoteur) : rattacher/fermer/réactiver des établissements — schéma/RLS/permissions déjà en place depuis l'étape 1/10, jamais consommés par une UI jusqu'ici.
+- Panneau "Réseau d'établissements" au tableau de bord, visible uniquement pour le rôle Promoteur et seulement si plus d'un établissement actif (jamais de sélecteur vide sur une structure mono-site).
+- **Portée volontairement réduite, signalée plutôt que bâclée** : le filtrage par `etablissement_id` des pages métier existantes (bénéficiaires/présences/dossiers/paiements) n'a pas été rétrofité — chantier séparé bien plus large qu'une petite itération, hors périmètre de cette session. Détail dans DECISIONS_LOG.md.
+- Vérifié : `tests/e2e/etablissements-structure.spec.ts`, non-régression `navigation.spec.ts`/`dashboard.spec.ts`/`auth.spec.ts`, `tsc --noEmit` propre.
+- **Reste à faire** : étape 10/10 (journal d'audit lisible, rapport d'impact exportable, bascule annuelle de cohorte).
 
 ## Résumé (lisible en 30 secondes) — Compte Structure, étape 8/10 (3-4/4) : sous-modules Paiements + Facturation — étape close
 - Nouvelle table append-only `versements_scolarite` (aucun update/delete) + trigger `recalculer_paiement_scolarite` qui recalcule `paiements_scolarite.montant_paye`/`statut` comme cache dérivé — corrige un écart avec le principe absolu "argent en registre append-only" (v5 §2) que la colonne mutable seule ne respectait pas.

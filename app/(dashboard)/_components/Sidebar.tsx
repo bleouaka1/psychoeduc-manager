@@ -82,6 +82,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
   {
     label: 'Gouvernance',
     items: [
+      { href: '/etablissements', label: 'Établissements', icon: Building2 },
       { href: '/invitations', label: 'Invitations', icon: UserPlus },
       { href: '/parametres-organisation', label: 'Paramètres organisation', icon: Settings2 },
       { href: '/archives', label: 'Archives', icon: Archive },
