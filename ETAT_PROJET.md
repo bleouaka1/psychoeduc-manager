@@ -1,4 +1,11 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 7/10)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 8/10, 1/4 : Présences)
+
+## Résumé (lisible en 30 secondes) — Compte Structure, étape 8/10 (1/4) : module Gestion Administrative — bascule + sous-module Présences
+- **Interrupteur `organisations.module_admin_actif`** (`/parametres-organisation`, Directeur/Promoteur) : la section "Gestion Administrative" (Présences/Dossiers/Paiements/Facturation) n'apparaît dans la Sidebar que si activé ; chaque page du module revérifie elle-même le flag (l'URL directe reste devinable, la Sidebar ne fait que cacher le lien).
+- **Trois trous de permission trouvés en construisant l'UI, aucun anticipé au schéma** : Directeur ne pouvait ni créer ni modifier une classe ; Formateur/Promoteur n'avaient aucun accès à `inscriptions_classes` ; surtout, **Directeur/Coordinateur/Promoteur n'avaient aucune ligne `permissions` pour `presences`** — la Feuille du jour aurait été silencieusement vide/non-saisissable pour un Directeur sans ce correctif (`20260729050000_gestion_administrative_permissions.sql`).
+- **Sous-module Présences livré** (`/presences`) : classes/cohortes (création), inscriptions (`inscriptions_classes`), feuille du jour 3 états (Présent/Absent/Retard, upsert sur la contrainte unique existante), alerte visuelle si ≥3 absences non justifiées.
+- Vérifié : `tests/e2e/presences-structure.spec.ts`, non-régression `dashboard.spec.ts`/`auth.spec.ts`/`assignations-structure.spec.ts`/`entretiens-structure.spec.ts`/`entretiens-beneficiaires.spec.ts`/`navigation.spec.ts` (Sidebar/layout touchés globalement), `tsc --noEmit` propre.
+- **Reste à faire dans l'étape 8/10** : sous-modules Dossiers, Paiements, Facturation. Étapes 9-10 du document non commencées.
 
 ## Résumé (lisible en 30 secondes) — Compte Structure, étape 1/10 : fondations (`PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md`)
 - Schéma + RLS pour le Compte Structure, construits comme une **extension** du système générique multi-tenant existant (organisations/membres_organisations/roles_utilisateurs) plutôt qu'un schéma parallèle — écart majeur par rapport au document source, détaillé dans DECISIONS_LOG.md.

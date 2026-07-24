@@ -2,6 +2,24 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-24 — Compte Structure, étape 8/10 (1/4) : module Gestion Administrative — bascule + sous-module Présences
+
+**`organisations.module_admin_actif` : interrupteur explicite, absent = désactivé.** Le document (§4.1) présente Présences/Dossiers/Paiements/Facturation comme un module à part entière, pas des sous-menus systématiques — une ONG qui ne gère pas de scolarité n'en a besoin d'aucun. Nouvelle route `/parametres-organisation` (Directeur/Promoteur uniquement) pour le basculer ; `(dashboard)/layout.tsx` calcule `moduleAdminActif` côté serveur (toujours vrai pour le Fondateur, jamais soumis au réglage d'une organisation particulière) et le passe en prop à `Sidebar`, qui n'insère la section "Gestion Administrative" dans le DOM que si actif — jamais grisée, absente purement et simplement sinon. Le flag est revérifié en tête de chaque page du module (`/presences` notamment) : la Sidebar ne fait que cacher le lien, l'URL reste devinable, donc l'accès direct doit lui aussi respecter la bascule.
+
+**Trois trous de permission trouvés en construisant l'UI, aucun anticipé en écrivant le schéma des étapes 6/8 antérieures** (`20260729050000_gestion_administrative_permissions.sql`) :
+- Directeur avait `peut_lire=true` mais `peut_creer=peut_modifier=false` sur `classes_groupes` — un rôle de gouvernance qui ne pouvait ni créer ni modifier une classe, incapable d'utiliser le module malgré sa position hiérarchique (§ rôle Directeur du document).
+- Formateur/Promoteur n'avaient aucun accès à `inscriptions_classes` (table posée à l'étape 6, jamais consommée par aucune UI jusqu'ici — premier vrai consommateur).
+- **Le plus significatif** : Directeur/Coordinateur/Promoteur n'avaient tout simplement **aucune ligne `permissions` pour le module `presences`** (l'étape 6, antérieure aux rôles de gouvernance Structure, n'avait doté que fondateur/administrateur/educateur/formateur). Sans ce correctif, la Feuille du jour — la fonctionnalité centrale du sous-module — aurait été silencieusement vide et non-saisissable pour un Directeur : RLS bloque, PostgREST ne renvoie ni erreur ni ligne. Trouvé en relisant la matrice `permissions` avant d'écrire le test, pas en le découvrant à l'exécution.
+Chaque trou vérifié non-consommé par du code existant avant élargissement (`grep -rn` sur les modules concernés), conformément à la discipline établie.
+
+**Directeur/Promoteur ajoutés au module `organisations` (lecture + modification, jamais création/suppression)** : seuls administrateur/fondateur y avaient accès depuis l'étape 1 — bloquant pour que `basculerModuleAdmin` (qui fait un simple `UPDATE organisations SET module_admin_actif`) fonctionne pour le rôle qui doit précisément pouvoir l'actionner.
+
+**Feuille du jour : upsert, pas insert** — réutilise la contrainte unique `(classe_id, beneficiaire_id, date_seance)` déjà posée à l'étape 6 ; ressaisir la présence d'un bénéficiaire le même jour corrige la ligne plutôt que d'en créer une seconde.
+
+**Seuil d'alerte 3 absences non justifiées (§4.1.1)** : calculé à l'affichage (`count(presences où statut='absent' et justifie=false)` scopé à la classe), pas stocké — cohérent avec le principe déjà établi ailleurs ("vue/calcul à la demande plutôt que compteur dupliqué").
+
+**Vérification** : `tests/e2e/presences-structure.spec.ts` (Directeur active le module, crée une classe, inscrit un bénéficiaire, saisit Présent, upsert vérifié par ressaisie), non-régression `dashboard.spec.ts`/`auth.spec.ts`/`assignations-structure.spec.ts`/`entretiens-structure.spec.ts`/`entretiens-beneficiaires.spec.ts`/`navigation.spec.ts` (Sidebar et layout touchés globalement). `tsc --noEmit` propre.
+
 ## 2026-07-13 — Compte Structure, étape 1/10 : fondations (`PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md`)
 
 Construit en mode autonome sur "vas y". Le document couvre 10 étapes (§6 de sa propre table des matières) — cette session livre l'étape 1 (schéma + RLS, "fondation non négociable avant tout front-end" selon le document lui-même) comme un commit séparé, conformément à l'instruction explicite du document de ne pas fusionner plusieurs modules non liés dans un commit massif.

@@ -30,6 +30,11 @@ import {
   Archive,
   UserCog,
   UserPlus,
+  CalendarCheck,
+  FolderCheck,
+  Wallet,
+  Receipt,
+  Settings2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -78,6 +83,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
     label: 'Gouvernance',
     items: [
       { href: '/invitations', label: 'Invitations', icon: UserPlus },
+      { href: '/parametres-organisation', label: 'Paramètres organisation', icon: Settings2 },
       { href: '/archives', label: 'Archives', icon: Archive },
       { href: '/audit', label: 'Journal d’audit', icon: ScrollText },
       { href: '/support', label: 'Support', icon: LifeBuoy },
@@ -87,9 +93,22 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
   },
 ]
 
-export default function Sidebar({ email }: { email?: string | null }) {
+// §4.1/§5 : n'apparaît dans le DOM que si l'organisation a activé le module (ou pour le
+// Fondateur, toujours) — jamais grisé, absent purement et simplement sinon.
+const SECTION_GESTION_ADMINISTRATIVE = {
+  label: 'Gestion Administrative',
+  items: [
+    { href: '/presences', label: 'Présences', icon: CalendarCheck },
+    { href: '/dossiers', label: 'Dossiers', icon: FolderCheck },
+    { href: '/paiements', label: 'Paiements', icon: Wallet },
+    { href: '/factures', label: 'Facturation', icon: Receipt },
+  ],
+}
+
+export default function Sidebar({ email, moduleAdminActif = false }: { email?: string | null; moduleAdminActif?: boolean }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(true)
+  const sections = moduleAdminActif ? [...NAV_SECTIONS.slice(0, 3), SECTION_GESTION_ADMINISTRATIVE, ...NAV_SECTIONS.slice(3)] : NAV_SECTIONS
 
   return (
     <aside
@@ -121,7 +140,7 @@ export default function Sidebar({ email }: { email?: string | null }) {
       </div>
 
       <nav className="flex-1 space-y-5">
-        {NAV_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <div key={section.label}>
             {!collapsed && (
               <p className="text-[11px] uppercase tracking-wider text-text-muted px-3 mb-1.5">{section.label}</p>
