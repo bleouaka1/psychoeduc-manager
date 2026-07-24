@@ -8,6 +8,10 @@ const FIXTURE_EMAIL = 'e2e-fixture@psychoeduc-manager.local'
 const FIXTURE_PASSWORD = 'E2eFixtureTest2026!'
 const FONDATEUR_EMAIL = 'e2e-fondateur-fixture@psychoeduc-manager.local'
 const FONDATEUR_PASSWORD = 'E2eFondateurFixture2026!'
+// Rôle 'formateur' seul (aucun rôle de gouvernance) — doit voir la vue étroite
+// "Mes bénéficiaires assignés", jamais les compteurs org-wide de la vue gouvernance.
+const FORMATEUR_EMAIL = 'e2e-structure-formateur-fixture@psychoeduc-manager.local'
+const FORMATEUR_PASSWORD = 'E2eStructureFormateur2026!'
 
 test('le cockpit fondateur affiche les métriques plateforme sans erreur JS (compte fondateur uniquement)', async ({ page }) => {
   const erreursConsole: string[] = []
@@ -54,6 +58,24 @@ test('un compte Structure non-fondateur voit son propre tableau de bord org-scop
   await expect(main.getByText('Invitations en attente')).toBeVisible()
   await expect(main.getByText('Présences du jour')).toBeVisible()
   await expect(main.getByText('Équipe', { exact: true })).toBeVisible()
+
+  expect(erreursConsole, `Erreurs JS inattendues: ${erreursConsole.join('\n')}`).toEqual([])
+})
+
+test('un Formateur (aucun rôle de gouvernance) voit uniquement ses bénéficiaires assignés, jamais les compteurs org-wide', async ({ page }) => {
+  const erreursConsole: string[] = []
+  page.on('pageerror', (err) => erreursConsole.push(err.message))
+
+  await page.goto('/login')
+  await page.fill('#email', FORMATEUR_EMAIL)
+  await page.fill('#password', FORMATEUR_PASSWORD)
+  await page.click('button[type="submit"]')
+  await expect(page).toHaveURL('http://localhost:3000/dashboard')
+
+  const main = page.getByRole('main')
+  await expect(main.getByText('Mes bénéficiaires assignés')).toBeVisible()
+  await expect(main.getByText('Établissements actifs')).toHaveCount(0)
+  await expect(main.getByText('Invitations en attente')).toHaveCount(0)
 
   expect(erreursConsole, `Erreurs JS inattendues: ${erreursConsole.join('\n')}`).toEqual([])
 })

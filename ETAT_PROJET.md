@@ -1,4 +1,4 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-13 (soir, Compte Structure étape 1/10)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 5/10)
 
 ## Résumé (lisible en 30 secondes) — Compte Structure, étape 1/10 : fondations (`PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md`)
 - Schéma + RLS pour le Compte Structure, construits comme une **extension** du système générique multi-tenant existant (organisations/membres_organisations/roles_utilisateurs) plutôt qu'un schéma parallèle — écart majeur par rapport au document source, détaillé dans DECISIONS_LOG.md.
@@ -10,7 +10,8 @@
 - **Étape 2/10 livrée dans la foulée** : module d'assignation (`/assignations`, Cockpit générique) — l'accès d'un formateur à un bénéficiaire suit désormais réellement, de bout en bout, une assignation active (rien avant, visible après, plus rien après la fin de l'assignation). Deux vrais bugs trouvés en testant (relation PostgREST ambiguë sur `profiles`, faux échec de test dû à un artefact de cache Next.js) — détail dans DECISIONS_LOG.md.
 - **Étape 3/10 livrée** : mécanisme d'invitation unifié équipe+parent (`/invitations` pour Directeur/Promoteur, `/invitation?token=...` pour l'accepter — signup ou "Accepter" si déjà connecté). Réutilise `invitations_utilisateurs` (Étape 4, jamais consommée jusqu'ici). Bug pré-existant trouvé et corrigé au passage : `/inscription-beneficiaire` n'était jamais publique dans le middleware, cassant ce parcours silencieusement depuis sa construction.
 - **Étape 4/10 livrée** : `/dashboard` branche maintenant Fondateur (panorama plateforme, intact) vs Structure (nouveau tableau de bord org-scopé) selon `is_fondateur()`. Régression trouvée et corrigée sur `e2e-fixture` (compte Structure historiquement testé comme s'il était fondateur, par accident d'absence de branchement jusqu'ici).
-- **Étapes 5 à 10 du document restent à construire** (extension Entretien/Interlocuteur, Espace Parent, module Gestion Administrative, multi-établissements, audit/rapport d'impact/bascule de cohorte).
+- **Étape 5/10 livrée** : tableau de bord différencié par rôle — un Formateur (sans rôle de gouvernance) voit désormais "Mes bénéficiaires assignés" plutôt que des compteurs org-wide qu'il ne peut pas explorer (RLS le lui interdisait déjà, l'UI le reflète maintenant honnêtement).
+- **Étapes 6 à 10 du document restent à construire** (extension Entretien/Interlocuteur, Espace Parent, module Gestion Administrative, multi-établissements, audit/rapport d'impact/bascule de cohorte).
 
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-13 (Suppression/Archives bénéficiaires + refonte /mon-espace + 3 pages Explorer)
 

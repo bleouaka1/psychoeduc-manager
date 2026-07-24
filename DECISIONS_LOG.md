@@ -25,7 +25,15 @@ Seules cinq tables sont réellement nouvelles (aucun équivalent n'existait) : `
 
 **Vérification** : `supabase/tests/test_compte_structure_fondations.sql` — formateur assigné voit son bénéficiaire, formateur non assigné de la même organisation ne le voit pas, directeur voit tout son établissement sans assignation, **le parent ne voit jamais aucune fiche d'entretien même marquée `interlocuteur='parent_tuteur'`** (point non négociable §3, vérifié explicitement), parent voit son propre lien, cloisonnement inter-organisations total sur bénéficiaire/entretien/lien parent. `tsc --noEmit` propre (aucun code applicatif touché à cette étape).
 
-**Reste à faire (étapes 5 à 10 du document)** : extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+**Reste à faire (étapes 6 à 10 du document)** : extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+
+## 2026-07-24 — Compte Structure, étape 5/10 : tableau de bord différencié par rôle
+
+`StructureDashboard.tsx` se scinde en deux vues : `VueGouvernance` (Directeur/Coordinateur/Éducateur/Promoteur/administrateur — inchangée, c'est l'étape 4) et `VueFormateur`, nouvelle, réservée aux comptes qui n'ont *que* le rôle `formateur`. Un formateur assigné voyait jusqu'ici les mêmes compteurs org-wide ("Bénéficiaires actifs : 12") que le Directeur, alors que RLS l'empêche déjà d'en consulter la liste réelle — trompeur, pas un problème de sécurité mais un vrai problème de cohérence produit. `VueFormateur` reflète honnêtement ce qu'il peut réellement faire : liste de ses assignations actives (`assignations` scopée à son `membre_organisation_id`), avec le statut de présence du jour pour chacune si déjà saisi.
+
+**Règle de bascule** : `ROLES_VUE_LARGE = ['directeur','coordinateur','promoteur','administrateur','educateur']` — reprend exactement l'exemple RLS du document source (§3 : "Directeur/Coordinateur voient tout leur établissement", seul Formateur est restreint). Un compte qui cumule `formateur` ET un rôle de gouvernance garde la vue large (le rôle le plus permissif l'emporte).
+
+**Vérification** : nouveau test dans `dashboard.spec.ts` avec `e2e-structure-formateur-fixture` (rôle `formateur` seul) — confirme la présence du panneau "Mes bénéficiaires assignés" et l'absence des compteurs org-wide ("Établissements actifs", "Invitations en attente") ; les deux tests existants (Fondateur, Structure vue large) toujours verts. `tsc --noEmit` propre.
 
 ## 2026-07-13 — Compte Structure, étape 4/10 : tableau de bord Directeur/Éducateur/Formateur
 

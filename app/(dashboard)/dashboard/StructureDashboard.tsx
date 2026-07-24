@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, UserCog, Gauge, CalendarCheck, UserPlus, School } from 'lucide-react'
+import { Building2, Users, UserCog, CalendarCheck, UserPlus, School, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatCard, StatusPill, EmptyState, IgaDial } from '../_components/ui'
 import type { MonOrganisation } from '../_lib/getMonOrganisation'
@@ -13,6 +13,12 @@ const ROLE_LABEL: Record<string, string> = {
   administrateur: 'Administrateur',
 }
 
+// §3/§4.5 : Directeur/Coordinateur/Éducateur/Promoteur voient tout leur établissement
+// sans condition — seul le Formateur est strictement scopé à ses assignations actives.
+// Un compte qui cumule 'formateur' ET un rôle de gouvernance garde la vue large (le rôle
+// le plus permissif l'emporte, jamais l'inverse).
+const ROLES_VUE_LARGE = ['directeur', 'coordinateur', 'promoteur', 'administrateur', 'educateur']
+
 /**
  * Tableau de bord Directeur/Éducateur/Formateur (§5) — vue org-scopée, distincte de
  * la vue globale du Fondateur (Home() dans page.tsx, intacte). Un même compte peut
@@ -23,6 +29,11 @@ const ROLE_LABEL: Record<string, string> = {
  * détail que le temps de cette session ne le permettait ; signalé plutôt que bâclé.
  */
 export async function StructureDashboard({ organisation }: { organisation: MonOrganisation }) {
+  const aVueLarge = organisation.roles.some((r) => ROLES_VUE_LARGE.includes(r))
+  return aVueLarge ? <VueGouvernance organisation={organisation} /> : <VueFormateur organisation={organisation} />
+}
+
+async function VueGouvernance({ organisation }: { organisation: MonOrganisation }) {
   const supabase = await createClient()
   const aujourdHui = new Date().toISOString().slice(0, 10)
 
@@ -111,6 +122,72 @@ export async function StructureDashboard({ organisation }: { organisation: MonOr
           )}
         </Panel>
       </div>
+
+      <footer className="mt-10 text-text-muted text-[12.5px] font-display italic text-center">
+        PsychoÉduc Manager — Transformer les potentiels en réussites durables.
+      </footer>
+    </>
+  )
+}
+
+/** Vue Formateur (§4.5/§5) : jamais de compteurs org-wide (n'a pas accès à tout l'établissement),
+ * uniquement ses propres bénéficiaires assignés — la même contrainte que RLS lui applique déjà
+ * sur `beneficiaires`, reflétée honnêtement dans son tableau de bord plutôt que de lui montrer
+ * des chiffres globaux qu'il ne peut ensuite pas explorer. */
+async function VueFormateur({ organisation }: { organisation: MonOrganisation }) {
+  const supabase = await createClient()
+  const aujourdHui = new Date().toISOString().slice(0, 10)
+
+  const { data: assignations } = await supabase
+    .from('assignations')
+    .select('id, role_assignation, date_debut, beneficiaires(id, nom, prenoms, statut_beneficiaire)')
+    .eq('formateur_membre_organisation_id', organisation.membre_organisation_id)
+    .is('date_fin', null)
+    .order('date_debut', { ascending: false })
+
+  const beneficiaireIds = (assignations ?? []).map((a: any) => a.beneficiaires?.id).filter(Boolean)
+  const { data: presencesJour } = beneficiaireIds.length
+    ? await supabase.from('presences').select('beneficiaire_id, statut').eq('date_seance', aujourdHui).in('beneficiaire_id', beneficiaireIds)
+    : { data: [] as any[] }
+
+  const presenceParBeneficiaire = new Map((presencesJour ?? []).map((p: any) => [p.beneficiaire_id, p.statut]))
+  const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const STATUT_PRESENCE_LABEL: Record<string, string> = { present: 'Présent', absent: 'Absent', retard: 'Retard' }
+
+  return (
+    <>
+      <PageHeader
+        eyebrowIcon={School}
+        eyebrowText={organisation.roles.map((r) => ROLE_LABEL[r] ?? r).join(' · ') || 'Formateur'}
+        title={organisation.nom}
+        subtitle="Vos bénéficiaires assignés — l'accès suit uniquement l'assignation, jamais l'ensemble de l'établissement."
+      />
+
+      <Panel title="Mes bénéficiaires assignés" icon={ClipboardList}>
+        {(assignations ?? []).length === 0 ? (
+          <EmptyState text="Aucun bénéficiaire ne vous est assigné pour le moment — votre Directeur ou Coordinateur peut vous en assigner depuis /assignations." />
+        ) : (
+          <ul className="divide-y divide-border-soft/60">
+            {(assignations ?? []).map((a: any) => (
+              <li key={a.id} className="py-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-text-primary text-[13.5px] font-medium">
+                    {a.beneficiaires?.nom} {a.beneficiaires?.prenoms}
+                  </p>
+                  <p className="text-text-muted text-[11px] mt-0.5">
+                    {a.role_assignation ? `${a.role_assignation} · ` : ''}Assigné depuis le {formatter.format(new Date(a.date_debut))}
+                  </p>
+                </div>
+                {presenceParBeneficiaire.has(a.beneficiaires?.id) && (
+                  <StatusPill status={presenceParBeneficiaire.get(a.beneficiaires?.id) === 'present' ? 'ok' : presenceParBeneficiaire.get(a.beneficiaires?.id) === 'absent' ? 'down' : 'warn'}>
+                    {STATUT_PRESENCE_LABEL[presenceParBeneficiaire.get(a.beneficiaires?.id) as string]}
+                  </StatusPill>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       <footer className="mt-10 text-text-muted text-[12.5px] font-display italic text-center">
         PsychoÉduc Manager — Transformer les potentiels en réussites durables.
