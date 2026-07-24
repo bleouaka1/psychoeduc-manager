@@ -147,3 +147,25 @@ export function calculerAge(dateNaissance: string | null): number | null {
 }
 
 export const SEXE_LABEL: Record<string, string> = { masculin: 'Masculin', feminin: 'Féminin', non_renseigne: 'Non renseigné' }
+
+// §4.2 Compte Structure — champ Interlocuteur, colonne réelle entretiens.interlocuteur
+// (pas dans `donnees jsonb`), donc géré à part des deux types Donnees* ci-dessus.
+export const INTERLOCUTEURS = ['beneficiaire', 'parent_tuteur', 'conjoint'] as const
+export type Interlocuteur = (typeof INTERLOCUTEURS)[number]
+export const INTERLOCUTEUR_LABEL: Record<Interlocuteur, string> = {
+  beneficiaire: 'Bénéficiaire',
+  parent_tuteur: 'Parent-Tuteur',
+  conjoint: 'Bénéficiaire + Parent-Tuteur (conjoint)',
+}
+
+/** Signatures partagées Solo/Structure — chaque contexte fournit sa propre implémentation
+ * (organisation résolue différemment), les composants FicheEntretien* restent identiques. */
+export type ActionEnregistrerEntretien = (
+  entretienId: string,
+  beneficiaireId: string,
+  donnees: Record<string, unknown>,
+  statut: 'brouillon' | 'valide',
+  interlocuteur: Interlocuteur,
+) => Promise<{ error: string | null }>
+
+export type ActionMettreAJourScolarisation = (beneficiaireId: string, scolarise: boolean, classe: string) => Promise<{ error: string | null }>

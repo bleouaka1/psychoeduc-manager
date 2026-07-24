@@ -3,8 +3,16 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Mail, CheckCircle2, ArrowLeft, Compass, Save } from 'lucide-react'
-import { ORIGINES_SPECIALISE, COMPORTEMENTS_PRESETS, type DonneesEntretienSpecialise } from '@/lib/entretiens'
-import { enregistrerEntretien, mettreAJourScolarisation } from '../beneficiaires/[id]/entretiens/actions'
+import {
+  ORIGINES_SPECIALISE,
+  COMPORTEMENTS_PRESETS,
+  INTERLOCUTEURS,
+  INTERLOCUTEUR_LABEL,
+  type DonneesEntretienSpecialise,
+  type Interlocuteur,
+  type ActionEnregistrerEntretien,
+  type ActionMettreAJourScolarisation,
+} from '@/lib/entretiens'
 import { BoutonImprimer } from './BoutonImprimer'
 import { EnteteImpression } from './EnteteImpression'
 
@@ -13,6 +21,7 @@ type Props = {
   entretienId: string
   statutInitial: 'brouillon' | 'valide'
   donneesInitiales: DonneesEntretienSpecialise
+  interlocuteurInitial: Interlocuteur
   dateEntretien: string
   beneficiaireNom: string
   age: number | null
@@ -21,6 +30,9 @@ type Props = {
   classe: string | null
   praticienNom: string
   organisation: { nom: string; type_organisation: string; logo_url?: string | null }
+  retourHref: string
+  enregistrerEntretien: ActionEnregistrerEntretien
+  mettreAJourScolarisation: ActionMettreAJourScolarisation
 }
 
 export function FicheEntretienSpecialise({
@@ -28,6 +40,7 @@ export function FicheEntretienSpecialise({
   entretienId,
   statutInitial,
   donneesInitiales,
+  interlocuteurInitial,
   dateEntretien,
   beneficiaireNom,
   age,
@@ -36,9 +49,13 @@ export function FicheEntretienSpecialise({
   classe: classeInitiale,
   praticienNom,
   organisation,
+  retourHref,
+  enregistrerEntretien,
+  mettreAJourScolarisation,
 }: Props) {
   const [donnees, setDonnees] = useState<DonneesEntretienSpecialise>(donneesInitiales)
   const [statut, setStatut] = useState(statutInitial)
+  const [interlocuteur, setInterlocuteur] = useState<Interlocuteur>(interlocuteurInitial)
   const [scolarise, setScolarise] = useState(scolariseInitial)
   const [classe, setClasse] = useState(classeInitiale ?? '')
   const [nouveauComportement, setNouveauComportement] = useState('')
@@ -69,7 +86,7 @@ export function FicheEntretienSpecialise({
     setErreur(null)
     setMessage(null)
     startTransition(async () => {
-      const res = await enregistrerEntretien(entretienId, beneficiaireId, donnees, nouveauStatut)
+      const res = await enregistrerEntretien(entretienId, beneficiaireId, donnees, nouveauStatut, interlocuteur)
       if (res.error) {
         setErreur(res.error)
         return
@@ -97,7 +114,7 @@ export function FicheEntretienSpecialise({
         <EnteteImpression organisation={organisation} />
 
         <div className="flex items-center justify-between mb-6 print:hidden">
-          <Link href={`/solo/beneficiaires/${beneficiaireId}`} className="flex items-center gap-2 text-sm" style={{ color: '#7A6F5E' }}>
+          <Link href={retourHref} className="flex items-center gap-2 text-sm" style={{ color: '#7A6F5E' }}>
             <ArrowLeft size={16} />
             Retour à la fiche bénéficiaire
           </Link>
@@ -141,6 +158,22 @@ export function FicheEntretienSpecialise({
           <div>
             <div style={{ color: '#8A7A5C' }}>Sexe</div>
             <div style={{ color: '#3A2E22' }}>{sexeLabel}</div>
+          </div>
+          <div>
+            <div style={{ color: '#8A7A5C' }}>Interlocuteur</div>
+            <select
+              value={interlocuteur}
+              disabled={verrouillee}
+              onChange={(e) => setInterlocuteur(e.target.value as Interlocuteur)}
+              className="mt-0.5 w-full bg-transparent border-b outline-none disabled:opacity-70"
+              style={{ borderColor: '#C1652F', color: '#3A2E22' }}
+            >
+              {INTERLOCUTEURS.map((i) => (
+                <option key={i} value={i}>
+                  {INTERLOCUTEUR_LABEL[i]}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="col-span-2 print:hidden">
             <label className="flex items-center gap-1.5 text-[12.5px]" style={{ color: '#8A7A5C' }}>

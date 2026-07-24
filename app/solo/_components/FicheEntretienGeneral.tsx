@@ -7,11 +7,14 @@ import {
   TYPES_ENTRETIEN_GENERAL,
   SOURCES_SIGNALEMENT,
   THEMATIQUES_PRESETS,
+  INTERLOCUTEURS,
+  INTERLOCUTEUR_LABEL,
   nouveauBlocThematique,
   type DonneesEntretienGeneral,
   type BlocThematique,
+  type Interlocuteur,
+  type ActionEnregistrerEntretien,
 } from '@/lib/entretiens'
-import { enregistrerEntretien } from '../beneficiaires/[id]/entretiens/actions'
 import { BoutonImprimer } from './BoutonImprimer'
 import { EnteteImpression } from './EnteteImpression'
 
@@ -20,6 +23,7 @@ type Props = {
   entretienId: string
   statutInitial: 'brouillon' | 'valide'
   donneesInitiales: DonneesEntretienGeneral
+  interlocuteurInitial: Interlocuteur
   dateEntretien: string
   beneficiaireNom: string
   age: number | null
@@ -27,6 +31,8 @@ type Props = {
   compteLabel: string
   dimensions: { id: string; nom: string }[]
   organisation: { nom: string; type_organisation: string; logo_url?: string | null }
+  retourHref: string
+  enregistrerEntretien: ActionEnregistrerEntretien
 }
 
 export function FicheEntretienGeneral({
@@ -34,6 +40,7 @@ export function FicheEntretienGeneral({
   entretienId,
   statutInitial,
   donneesInitiales,
+  interlocuteurInitial,
   dateEntretien,
   beneficiaireNom,
   age,
@@ -41,9 +48,12 @@ export function FicheEntretienGeneral({
   compteLabel,
   dimensions,
   organisation,
+  retourHref,
+  enregistrerEntretien,
 }: Props) {
   const [donnees, setDonnees] = useState<DonneesEntretienGeneral>(donneesInitiales)
   const [statut, setStatut] = useState(statutInitial)
+  const [interlocuteur, setInterlocuteur] = useState<Interlocuteur>(interlocuteurInitial)
   const [erreur, setErreur] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -68,7 +78,7 @@ export function FicheEntretienGeneral({
     setErreur(null)
     setMessage(null)
     startTransition(async () => {
-      const res = await enregistrerEntretien(entretienId, beneficiaireId, donnees, nouveauStatut)
+      const res = await enregistrerEntretien(entretienId, beneficiaireId, donnees, nouveauStatut, interlocuteur)
       if (res.error) {
         setErreur(res.error)
         return
@@ -88,7 +98,7 @@ export function FicheEntretienGeneral({
         <EnteteImpression organisation={organisation} />
 
         <div className="flex items-center justify-between mb-6 print:hidden">
-          <Link href={`/solo/beneficiaires/${beneficiaireId}`} className="flex items-center gap-2 text-sm" style={{ color: '#7A6F5E' }}>
+          <Link href={retourHref} className="flex items-center gap-2 text-sm" style={{ color: '#7A6F5E' }}>
             <ArrowLeft size={16} />
             Retour à la fiche bénéficiaire
           </Link>
@@ -145,6 +155,22 @@ export function FicheEntretienGeneral({
           <div>
             <div style={{ color: '#8A7A5C' }}>Compte</div>
             <div style={{ color: '#3A2E22' }}>{compteLabel}</div>
+          </div>
+          <div>
+            <div style={{ color: '#8A7A5C' }}>Interlocuteur</div>
+            <select
+              value={interlocuteur}
+              disabled={verrouillee}
+              onChange={(e) => setInterlocuteur(e.target.value as Interlocuteur)}
+              className="mt-0.5 w-full bg-transparent border-b outline-none disabled:opacity-70"
+              style={{ borderColor: '#C1652F', color: '#3A2E22' }}
+            >
+              {INTERLOCUTEURS.map((i) => (
+                <option key={i} value={i}>
+                  {INTERLOCUTEUR_LABEL[i]}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <div style={{ color: '#8A7A5C' }}>Étape du parcours</div>

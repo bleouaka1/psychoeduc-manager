@@ -25,7 +25,21 @@ Seules cinq tables sont réellement nouvelles (aucun équivalent n'existait) : `
 
 **Vérification** : `supabase/tests/test_compte_structure_fondations.sql` — formateur assigné voit son bénéficiaire, formateur non assigné de la même organisation ne le voit pas, directeur voit tout son établissement sans assignation, **le parent ne voit jamais aucune fiche d'entretien même marquée `interlocuteur='parent_tuteur'`** (point non négociable §3, vérifié explicitement), parent voit son propre lien, cloisonnement inter-organisations total sur bénéficiaire/entretien/lien parent. `tsc --noEmit` propre (aucun code applicatif touché à cette étape).
 
-**Reste à faire (étapes 6 à 10 du document)** : extension UI du module Entretien (champ Interlocuteur), Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+**Reste à faire (étapes 7 à 10 du document)** : Espace Parent, module Gestion Administrative (UI des 4 sous-menus), niveau Promoteur/multi-établissements, journal d'audit lisible + rapport d'impact + bascule de cohorte.
+
+## 2026-07-24 — Compte Structure, étape 6/10 : module Entretien étendu (champ Interlocuteur) + gap comblé
+
+**Découverte en construisant cette étape : le module Entretien n'était accessible que depuis `/solo`.** Aucune fiche bénéficiaire détaillée, aucune route de création d'entretien n'existait sous `(dashboard)` — `/beneficiaires` (Cockpit) était une simple liste sans clic-through, sans formulaire d'ajout non plus. "Rendre le module Entretien accessible côté Structure" impliquait donc de construire ces fondations manquantes, pas seulement d'ajouter un champ.
+
+**`FicheEntretienGeneral`/`FicheEntretienSpecialise` (composants client, jusqu'ici couplés en dur à `/solo`) refactorés en injection de dépendances** plutôt que dupliqués pour Structure : `retourHref` et `enregistrerEntretien` (+ `mettreAJourScolarisation` pour la fiche spécialisée) sont maintenant des props, plus des imports fixes vers `app/solo/beneficiaires/[id]/entretiens/actions.ts`. Solo passe ses propres actions (`getSoloOrganisation`), Structure passe les siennes (`getMonOrganisation`) — même UI, deux contextes de résolution d'organisation, zéro duplication des ~450 lignes de composant. Signatures partagées (`ActionEnregistrerEntretien`, `ActionMettreAJourScolarisation`) posées dans `lib/entretiens.ts` pour garder les deux implémentations conformes au même contrat.
+
+**Champ Interlocuteur (§4.2) ajouté au bloc identification des deux fiches** — `entretiens.interlocuteur` existait déjà en base depuis l'étape 1 mais n'était exposé nulle part côté UI, y compris pour Solo. Les trois valeurs (`INTERLOCUTEURS`/`INTERLOCUTEUR_LABEL`, `lib/entretiens.ts`) : Bénéficiaire / Parent-Tuteur / Bénéficiaire + Parent-Tuteur (conjoint), conforme au document.
+
+**Nouvelles routes `(dashboard)/beneficiaires/[id]` et `.../entretiens/[entretienId]`** — fiche bénéficiaire simplifiée (identification, historique IGA, liste d'entretiens + création), pendant du fiche Solo mais sans Objectifs/Messagerie (hors périmètre de cette étape). `creerEntretien` (Structure) vérifie explicitement que le bénéficiaire appartient bien à l'organisation résolue de l'appelant avant d'insérer — garde-fou absent côté Solo (pas nécessaire là-bas : `getSoloOrganisation()` ne résout jamais qu'une seule organisation par construction, mais côté Cockpit générique où plusieurs organisations coexistent dans les mêmes tables, une incohérence `organisation_id`/`beneficiaire_id` était possible sans ce contrôle).
+
+**"Ajouter un bénéficiaire" ajouté à `/beneficiaires` (Cockpit)** — n'existait nulle part hors `/solo/beneficiaires`. Nécessaire pour que le Directeur ait un point d'entrée réel avant de pouvoir créer une fiche d'entretien ; sans ce formulaire, cette étape restait untestable pour un compte Structure fraîchement configuré.
+
+**Vérification** : `tests/e2e/entretiens-structure.spec.ts` (Directeur ajoute un bénéficiaire → crée un entretien général → sélectionne Interlocuteur=Parent-Tuteur → valide → apparaît dans la liste), non-régression complète des tests Solo entretiens (le refactor par injection ne casse rien), `dashboard.spec.ts`, `navigation.spec.ts`, `assignations-structure.spec.ts`. `tsc --noEmit` propre.
 
 ## 2026-07-24 — Compte Structure, étape 5/10 : tableau de bord différencié par rôle
 
