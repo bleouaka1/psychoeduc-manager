@@ -2,6 +2,16 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-24 — Compte Structure, étape 8/10 (2/4) : sous-module Dossiers (checklist pièces)
+
+**`documents_beneficiaires` (étape 5) réutilisée telle quelle — pas de nouvelle table `dossiers_beneficiaire`.** L'étape 1/10 (fondations) l'avait déjà étendue de manière additive avec une colonne `statut` (`manquant`/`recu`/`valide`) et avait déjà correctement doté Directeur/Coordinateur/Promoteur/Formateur en permissions — contrairement au sous-module Présences (voir entrée précédente), aucun trou de permission ici : l'anticipation faite à l'étape 1 était juste.
+
+**`type_document` reste un texte libre, pas un enum fermé.** Un `<datalist>` propose 6 types courants (Acte de naissance, Photo d'identité, Fiche d'inscription, Autorisation parentale, Certificat médical, Bulletin précédent) comme suggestions de saisie, sans contraindre — le document ne fournit pas de liste exhaustive et fermée par type d'établissement, imposer un enum aurait été une supposition non demandée.
+
+**`/dossiers` (liste, complétude par bénéficiaire) + `/dossiers/[beneficiaireId]` (checklist détaillée)** plutôt qu'un panneau ajouté à `/beneficiaires/[id]` existant (fiche entretiens de l'étape 6) : le document traite Dossiers comme un sous-menu de premier niveau du module Gestion Administrative (§4.1), pas un onglet de la fiche entretien — séparation cohérente avec Présences (`/presences`), pas de couplage avec le module Entretien.
+
+**Vérification** : `tests/e2e/dossiers-structure.spec.ts` (ajout d'une pièce, progression Manquant→Reçu→Validé), non-régression `navigation.spec.ts`/`presences-structure.spec.ts`. `tsc --noEmit` propre.
+
 ## 2026-07-24 — Compte Structure, étape 8/10 (1/4) : module Gestion Administrative — bascule + sous-module Présences
 
 **`organisations.module_admin_actif` : interrupteur explicite, absent = désactivé.** Le document (§4.1) présente Présences/Dossiers/Paiements/Facturation comme un module à part entière, pas des sous-menus systématiques — une ONG qui ne gère pas de scolarité n'en a besoin d'aucun. Nouvelle route `/parametres-organisation` (Directeur/Promoteur uniquement) pour le basculer ; `(dashboard)/layout.tsx` calcule `moduleAdminActif` côté serveur (toujours vrai pour le Fondateur, jamais soumis au réglage d'une organisation particulière) et le passe en prop à `Sidebar`, qui n'insère la section "Gestion Administrative" dans le DOM que si actif — jamais grisée, absente purement et simplement sinon. Le flag est revérifié en tête de chaque page du module (`/presences` notamment) : la Sidebar ne fait que cacher le lien, l'URL reste devinable, donc l'accès direct doit lui aussi respecter la bascule.

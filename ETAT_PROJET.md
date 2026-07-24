@@ -1,4 +1,9 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 8/10, 1/4 : Présences)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 8/10, 2/4 : Dossiers)
+
+## Résumé (lisible en 30 secondes) — Compte Structure, étape 8/10 (2/4) : sous-module Dossiers (checklist pièces)
+- `/dossiers` (liste des bénéficiaires + complétude) et `/dossiers/[beneficiaireId]` (checklist détaillée, statut Manquant/Reçu/Validé) — réutilise `documents_beneficiaires` (étape 5, déjà étendue additivement à l'étape 1/10), aucun trou de permission trouvé cette fois (contrairement à Présences).
+- Vérifié : `tests/e2e/dossiers-structure.spec.ts`, non-régression `navigation.spec.ts`/`presences-structure.spec.ts`, `tsc --noEmit` propre.
+- **Reste à faire dans l'étape 8/10** : sous-modules Paiements + Facturation. Étapes 9-10 du document non commencées.
 
 ## Résumé (lisible en 30 secondes) — Compte Structure, étape 8/10 (1/4) : module Gestion Administrative — bascule + sous-module Présences
 - **Interrupteur `organisations.module_admin_actif`** (`/parametres-organisation`, Directeur/Promoteur) : la section "Gestion Administrative" (Présences/Dossiers/Paiements/Facturation) n'apparaît dans la Sidebar que si activé ; chaque page du module revérifie elle-même le flag (l'URL directe reste devinable, la Sidebar ne fait que cacher le lien).
