@@ -1,4 +1,11 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 8/10, 2/4 : Dossiers)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 8/10 close : Présences, Dossiers, Paiements, Facturation)
+
+## Résumé (lisible en 30 secondes) — Compte Structure, étape 8/10 (3-4/4) : sous-modules Paiements + Facturation — étape close
+- Nouvelle table append-only `versements_scolarite` (aucun update/delete) + trigger `recalculer_paiement_scolarite` qui recalcule `paiements_scolarite.montant_paye`/`statut` comme cache dérivé — corrige un écart avec le principe absolu "argent en registre append-only" (v5 §2) que la colonne mutable seule ne respectait pas.
+- `/paiements` (création, versements successifs, statut à_jour/partiel/retard) et `/factures` (génération à partir d'un paiement soldé, numérotation `FA-{année}-{séquence}`) — réservés Directeur/Promoteur (données financières, permissions déjà posées à l'étape 1/10).
+- **Correction d'une entrée précédente** : le "trou de permission" `presences` pour Directeur/Coordinateur/Promoteur documenté à l'étape 8/10 (1/4) était erroné — ces rôles l'avaient déjà depuis l'étape 1/10 (`git blame` vérifié). Détail dans DECISIONS_LOG.md.
+- Vérifié : `tests/e2e/paiements-structure.spec.ts`, non-régression `navigation.spec.ts`/`dashboard.spec.ts`/`presences-structure.spec.ts`/`dossiers-structure.spec.ts`, `tsc --noEmit` propre.
+- **Étape 8/10 du document close** (4/4 sous-modules livrés). Restent les étapes 9/10 (Promoteur/multi-établissements) et 10/10 (journal d'audit lisible, rapport d'impact, bascule de cohorte).
 
 ## Résumé (lisible en 30 secondes) — Compte Structure, étape 8/10 (2/4) : sous-module Dossiers (checklist pièces)
 - `/dossiers` (liste des bénéficiaires + complétude) et `/dossiers/[beneficiaireId]` (checklist détaillée, statut Manquant/Reçu/Validé) — réutilise `documents_beneficiaires` (étape 5, déjà étendue additivement à l'étape 1/10), aucun trou de permission trouvé cette fois (contrairement à Présences).
