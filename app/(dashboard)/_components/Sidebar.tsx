@@ -36,6 +36,7 @@ import {
   Receipt,
   Settings2,
   FileBarChart,
+  Eye,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -108,10 +109,24 @@ const SECTION_GESTION_ADMINISTRATIVE = {
   ],
 }
 
-export default function Sidebar({ email, moduleAdminActif = false }: { email?: string | null; moduleAdminActif?: boolean }) {
+export default function Sidebar({
+  email,
+  moduleAdminActif = false,
+  estFondateur = false,
+}: {
+  email?: string | null
+  moduleAdminActif?: boolean
+  estFondateur?: boolean
+}) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(true)
-  const sections = moduleAdminActif ? [...NAV_SECTIONS.slice(0, 3), SECTION_GESTION_ADMINISTRATIVE, ...NAV_SECTIONS.slice(3)] : NAV_SECTIONS
+  let sections = moduleAdminActif ? [...NAV_SECTIONS.slice(0, 3), SECTION_GESTION_ADMINISTRATIVE, ...NAV_SECTIONS.slice(3)] : NAV_SECTIONS
+  // Mode Aperçu ("voir en tant que", lib/apercu.ts) : jamais visible pour un compte non-Fondateur.
+  if (estFondateur) {
+    sections = sections.map((section) =>
+      section.label === 'Vue d’ensemble' ? { ...section, items: [...section.items, { href: '/apercu', label: 'Mode Test — Aperçu', icon: Eye }] } : section,
+    )
+  }
 
   return (
     <aside

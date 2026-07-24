@@ -2,9 +2,14 @@ import Link from 'next/link'
 import { Home, Repeat, HeartHandshake } from 'lucide-react'
 import { logout } from '../login/actions'
 import { getEmployeurOrganisation } from './_lib/getEmployeurOrg'
+import { createClient } from '@/lib/supabase/server'
+import { organisationApercuActive } from '@/lib/apercu'
+import { ApercuBanner } from '@/app/(dashboard)/_components/ApercuBanner'
 
 export default async function EmployeurLayout({ children }: { children: React.ReactNode }) {
-  const organisation = await getEmployeurOrganisation()
+  const supabase = await createClient()
+  const [organisation, { data: estFondateur }] = await Promise.all([getEmployeurOrganisation(), supabase.rpc('is_fondateur')])
+  const apercu = estFondateur ? await organisationApercuActive() : null
 
   return (
     <div className="min-h-screen bg-bg-base relative overflow-x-hidden">
@@ -29,6 +34,8 @@ export default async function EmployeurLayout({ children }: { children: React.Re
             </form>
           </div>
         </div>
+
+        {apercu && <ApercuBanner organisation={apercu} />}
 
         {organisation ? (
           children

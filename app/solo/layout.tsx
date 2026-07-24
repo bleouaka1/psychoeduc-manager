@@ -7,6 +7,8 @@ import { NotificationsBell } from './_components/NotificationsBell'
 import { compterMessagesNonLus } from '@/lib/messagerieInterne'
 import { compteAAccesBeneficiaire } from '@/lib/comptes'
 import { createClient } from '@/lib/supabase/server'
+import { organisationApercuActive } from '@/lib/apercu'
+import { ApercuBanner } from '@/app/(dashboard)/_components/ApercuBanner'
 
 export default async function SoloLayout({ children }: { children: React.ReactNode }) {
   const [organisation, isFondateur, messagesNonLus, aAccesBeneficiaire] = await Promise.all([
@@ -15,6 +17,7 @@ export default async function SoloLayout({ children }: { children: React.ReactNo
     compterMessagesNonLus(),
     compteAAccesBeneficiaire(await createClient()),
   ])
+  const apercu = isFondateur ? await organisationApercuActive() : null
 
   return (
     <div className="flex min-h-screen bg-bg-base overflow-x-hidden relative">
@@ -51,6 +54,8 @@ export default async function SoloLayout({ children }: { children: React.ReactNo
               </form>
             </div>
           </div>
+
+          {apercu && <ApercuBanner organisation={apercu} />}
 
           {organisation ? (
             children

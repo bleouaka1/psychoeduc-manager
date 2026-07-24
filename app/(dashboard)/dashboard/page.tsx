@@ -17,6 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, StatCard, StatusPill, EmptyState, IgaDial } from '../_components/ui'
 import { getMonOrganisation } from '../_lib/getMonOrganisation'
+import { organisationApercuActive } from '@/lib/apercu'
 import { StructureDashboard } from './StructureDashboard'
 
 /**
@@ -29,11 +30,22 @@ import { StructureDashboard } from './StructureDashboard'
  */
 export default async function Home() {
   const supabase = await createClient()
-
   const { data: estFondateur } = await supabase.rpc('is_fondateur')
-  if (!estFondateur) {
+
+  // getMonOrganisation() n'est appelée pour un Fondateur QUE si le mode Aperçu
+  // (`lib/apercu.ts`) est actif — sinon un Fondateur incidemment membre d'une organisation
+  // (ex. propre compte de test créé via self-signup) verrait CETTE organisation plutôt que
+  // le panorama plateforme, cassant le comportement d'origine "Fondateur = toujours global".
+  const apercuActif = estFondateur ? await organisationApercuActive() : null
+  if (!estFondateur || apercuActif) {
     const organisation = await getMonOrganisation()
     if (organisation) return <StructureDashboard organisation={organisation} />
+  }
+
+  if (!estFondateur) {
+    // Ni organisation Structure, ni Fondateur : redirigé par le middleware avant d'arriver
+    // ici en temps normal, mais gardé par prudence (aucune donnée plateforme à exposer).
+    return null
   }
 
   const [{ data: dash, error: dashError }, { data: audit }, { data: derniereSauvegarde }, alertesResult] =

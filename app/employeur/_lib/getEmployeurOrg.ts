@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { resoudreOrganisationApercu } from '@/lib/apercu'
 
 export type EmployeurOrganisation = {
   id: string
@@ -11,6 +12,8 @@ export type EmployeurOrganisation = {
  * Résout l'organisation de type "employeur" dont l'utilisateur connecté est membre.
  * Même principe que getSoloOrganisation() (Compte Solo) : un compte Employeur n'est
  * jamais une table séparée, c'est une organisation avec type_organisation='employeur'.
+ *
+ * Mode Aperçu (`lib/apercu.ts`) : voir getSoloOrganisation() pour le détail — même logique.
  */
 export const getEmployeurOrganisation = cache(async (): Promise<EmployeurOrganisation | null> => {
   const supabase = await createClient()
@@ -18,6 +21,9 @@ export const getEmployeurOrganisation = cache(async (): Promise<EmployeurOrganis
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return null
+
+  const apercu = await resoudreOrganisationApercu(supabase, ['employeur'])
+  if (apercu) return { id: apercu.id, nom: apercu.nom, type_organisation: apercu.type_organisation }
 
   const { data } = await supabase
     .from('membres_organisations')
