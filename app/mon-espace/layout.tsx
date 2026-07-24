@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { destinationOrganisationActive } from '@/lib/comptes'
+import { impersonationActive } from '@/lib/apercu'
+import { ImpersonationBanner } from '../(dashboard)/_components/ImpersonationBanner'
 import { logout } from '../login/actions'
 
 export default async function MonEspaceLayout({ children }: { children: React.ReactNode }) {
@@ -12,6 +14,8 @@ export default async function MonEspaceLayout({ children }: { children: React.Re
 
   const { count } = await supabase.from('beneficiaires').select('id', { count: 'exact', head: true }).eq('profile_id', user.id)
   if (!count) redirect('/login')
+
+  const enImpersonation = await impersonationActive()
 
   // Bascule multi-profils (CLAUDE-CODE-COMPTES-MULTIPROFILS.md) : un même profil peut
   // cumuler une organisation ET un dossier bénéficiaire — bascule gratuite, instantanée,
@@ -42,6 +46,12 @@ export default async function MonEspaceLayout({ children }: { children: React.Re
           </form>
         </div>
       </div>
+
+      {enImpersonation && (
+        <div className="relative z-[1] px-6 sm:px-10 pt-7">
+          <ImpersonationBanner />
+        </div>
+      )}
 
       <div className="relative z-[1] px-6 sm:px-10 py-11 max-w-3xl mx-auto">{children}</div>
 

@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { CalendarCheck, TrendingUp, HeartHandshake } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { impersonationActive } from '@/lib/apercu'
+import { ImpersonationBanner } from '../(dashboard)/_components/ImpersonationBanner'
 import { logout } from '../login/actions'
 
 const TENDANCE_LABEL: Record<string, { texte: string; couleur: string }> = {
@@ -32,6 +34,8 @@ export default async function EspaceParentPage() {
     .eq('statut', 'actif')
 
   if (!liens || liens.length === 0) redirect('/login')
+
+  const enImpersonation = await impersonationActive()
 
   const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
   const trenteJours = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -68,6 +72,12 @@ export default async function EspaceParentPage() {
           </button>
         </form>
       </div>
+
+      {enImpersonation && (
+        <div className="relative z-[1] px-6 sm:px-10 pt-7">
+          <ImpersonationBanner />
+        </div>
+      )}
 
       <div className="relative z-[1] px-6 sm:px-10 py-11 max-w-3xl mx-auto space-y-8">
         {enfants.map(({ beneficiaire, presences, tendance }) => {

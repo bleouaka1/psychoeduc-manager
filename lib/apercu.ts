@@ -3,6 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from './supabase/server'
 
 export const COOKIE_APERCU = 'apercu_organisation_id'
+/** Sauvegarde temporaire (1h) de la session réelle du Fondateur pendant une impersonation
+ * bénéficiaire/parent (`app/(dashboard)/apercu/actions.ts`) — permet de la restaurer via
+ * "Quitter l'impersonation" sans qu'il ait à se reconnecter. */
+export const COOKIE_BACKUP_SESSION = 'fondateur_backup_session'
 
 export type OrganisationApercu = {
   id: string
@@ -39,6 +43,16 @@ export async function resoudreOrganisationApercu(supabase: SupabaseClient, types
 
   if (!organisation || !typesAttendus.includes(organisation.type_organisation)) return null
   return organisation
+}
+
+/** Vrai si une session Fondateur est actuellement sauvegardée en attente de restauration —
+ * c'est-à-dire qu'une impersonation bénéficiaire/parent est en cours. Ne nécessite pas de
+ * revérifier is_fondateur() ici : la session ACTIVE en ce moment est celle du bénéficiaire/
+ * parent impersonné, pas celle du Fondateur (`demarrerImpersonation` l'a déjà vérifié avant
+ * de poser ce cookie, seul endroit qui peut l'écrire). */
+export async function impersonationActive(): Promise<boolean> {
+  const cookieStore = await cookies()
+  return Boolean(cookieStore.get(COOKIE_BACKUP_SESSION)?.value)
 }
 
 /** Résout l'aperçu actif quel que soit son type (utilisé par la bannière, pas par les
