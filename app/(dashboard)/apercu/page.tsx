@@ -22,13 +22,25 @@ const TYPE_LABEL: Record<string, string> = {
   entreprise: 'Employeur — Entreprise',
 }
 
+// Ordre de la hiérarchie du document Compte Structure (§1) — Promoteur au sommet, Formateur
+// au plus près du terrain. Détermine l'ordre d'affichage des groupes de rôle sur cette page.
+const ORDRE_ROLES = ['promoteur', 'directeur', 'coordinateur', 'educateur', 'formateur', 'administrateur']
+const ROLE_LABEL: Record<string, string> = {
+  promoteur: 'Promoteur',
+  directeur: 'Directeur',
+  coordinateur: 'Coordinateur',
+  educateur: 'Éducateur',
+  formateur: 'Formateur',
+  administrateur: 'Administrateur',
+}
+
 export default async function ApercuPage({ searchParams }: { searchParams: Promise<{ erreur?: string }> }) {
   const { erreur } = await searchParams
   const supabase = await createClient()
   const { data: estFondateur } = await supabase.rpc('is_fondateur')
   if (!estFondateur) redirect('/dashboard')
 
-  const [{ data: organisations }, { data: beneficiairesAvecCompte }, { data: liensParents }] = await Promise.all([
+  const [{ data: organisations }, { data: beneficiairesAvecCompte }, { data: liensParents }, { data: membresStructure }] = await Promise.all([
     supabase.from('organisations').select('id, nom, type_organisation, created_at').order('nom'),
     supabase
       .from('beneficiaires')
@@ -42,11 +54,41 @@ export default async function ApercuPage({ searchParams }: { searchParams: Promi
       .eq('statut', 'actif')
       .order('created_at', { ascending: false })
       .limit(50),
+    // profiles!membres_organisations_profile_id_fkey : membres_organisations a 3 FK vers
+    // profiles (created_by/profile_id/updated_by) — sans ce hint explicite, PostgREST refuse
+    // la requête (PGRST201, relation ambiguë) et data reste `undefined` sans exception JS
+    // visible (déjà rencontré à l'étape 2/10 du Compte Structure, leçon désormais établie).
+    supabase
+      .from('membres_organisations')
+      .select('profile_id, profiles!membres_organisations_profile_id_fkey(email, nom, prenoms), organisations(nom, type_organisation), roles_utilisateurs(role, actif)')
+      .eq('statut', 'actif')
+      .limit(200),
   ])
 
   const solo = (organisations ?? []).filter((o) => o.type_organisation === 'solo')
   const employeur = (organisations ?? []).filter((o) => o.type_organisation === 'employeur')
   const structures = (organisations ?? []).filter((o) => !['solo', 'employeur'].includes(o.type_organisation))
+
+  // Impersonation réelle du personnel Structure (Directeur/Coordinateur/Éducateur/Formateur/
+  // Promoteur) — contrairement au bouton "Voir" ci-dessus (rôle forcé au plus large pour
+  // tout montrer), ici tu vis EXACTEMENT ce que cette personne voit, boutons compris.
+  const staffParRole = new Map<string, { profileId: string; email: string; nom: string; org: string }[]>()
+  for (const m of membresStructure ?? []) {
+    const org = (m as any).organisations
+    if (!org || ['solo', 'employeur'].includes(org.type_organisation)) continue
+    const profil = (m as any).profiles
+    for (const r of (m as any).roles_utilisateurs ?? []) {
+      if (!r.actif) continue
+      const liste = staffParRole.get(r.role) ?? []
+      liste.push({ profileId: m.profile_id, email: profil?.email ?? '', nom: `${profil?.prenoms ?? ''} ${profil?.nom ?? ''}`.trim(), org: org.nom })
+      staffParRole.set(r.role, liste)
+    }
+  }
+  const rolesOrdonnes = [...staffParRole.keys()].sort((a, b) => {
+    const ia = ORDRE_ROLES.indexOf(a)
+    const ib = ORDRE_ROLES.indexOf(b)
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+  })
 
   // Un même parent peut avoir plusieurs enfants (plusieurs lignes) — un seul bouton par
   // parent_profile_id distinct, avec la liste de ses enfants en label.
@@ -99,6 +141,38 @@ export default async function ApercuPage({ searchParams }: { searchParams: Promi
           )}
         </Panel>
       </div>
+
+      <Panel title="Personnel Structure — par rôle" icon={Users} className="mb-5">
+        <p className="text-text-muted text-xs mb-3">
+          Connexion réelle (impersonation) à un compte précis — contrairement à "Voir" ci-dessus (qui montre tous les rôles à la fois pour tout explorer vite), ici tu vis exactement ce que CETTE personne voit : mêmes boutons, mêmes restrictions, conforme à sa mission réelle.
+        </p>
+        {rolesOrdonnes.length === 0 ? (
+          <EmptyState text="Aucun membre d'équipe Structure pour le moment." />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {rolesOrdonnes.map((role) => (
+              <div key={role}>
+                <p className="text-text-muted text-[11px] uppercase tracking-wide mb-2">{ROLE_LABEL[role] ?? role}</p>
+                <ul className="divide-y divide-border-soft/60">
+                  {staffParRole.get(role)!.map((personne) => (
+                    <li key={`${role}-${personne.profileId}`} className="py-2.5 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-text-primary text-[13px]">{personne.nom || personne.email}</p>
+                        <p className="text-text-muted text-[11px]">{personne.org}</p>
+                      </div>
+                      <form action={demarrerImpersonation.bind(null, personne.profileId, '/dashboard')}>
+                        <button type="submit" className="text-[11px] px-2.5 py-1 rounded-full border border-border-soft text-text-primary hover:bg-bg-surface whitespace-nowrap">
+                          Se connecter
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Panel title="Mon Espace — bénéficiaires" icon={HeartHandshake}>

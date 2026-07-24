@@ -21,6 +21,14 @@ test('la section impersonation de /apercu liste des comptes réels et échoue pr
 
   await expect(page.getByRole('heading', { name: 'Mon Espace — bénéficiaires' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Espace Parent' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Personnel Structure — par rôle' })).toBeVisible()
+
+  // Les 6 rôles Structure ont chacun au moins un compte de test réel (fixtures créées pour
+  // compléter les exemples) — chaque groupe doit apparaître, pas seulement les rôles les
+  // plus anciennement testés (Directeur/Formateur).
+  for (const role of ['Promoteur', 'Directeur', 'Coordinateur', 'Éducateur', 'Formateur']) {
+    await expect(page.getByText(role, { exact: true })).toBeVisible()
+  }
 
   const panelBeneficiaires = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Mon Espace — bénéficiaires' }) })
   const premiereLigne = panelBeneficiaires.locator('li').first()
