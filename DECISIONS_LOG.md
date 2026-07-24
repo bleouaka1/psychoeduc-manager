@@ -2,6 +2,18 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-24 — Mode Aperçu, vérification end-to-end avec la vraie clé service_role
+
+Angenor a ajouté `SUPABASE_SERVICE_ROLE_KEY` à `.env.local`. Deux problèmes trouvés et corrigés avant que l'impersonation fonctionne réellement :
+
+**1. `.env.local` malformé — la clé n'était pas du tout lue.** La valeur JWT s'est retrouvée collée sur sa propre ligne, sans le préfixe `SUPABASE_SERVICE_ROLE_KEY=` devant (probablement un artefact de copier-coller/éditeur). `process.env.SUPABASE_SERVICE_ROLE_KEY` restait donc `undefined` malgré la clé "ajoutée". Corrigé en réunissant la valeur sur la ligne `SUPABASE_SERVICE_ROLE_KEY=...` correcte.
+
+**Incident de sécurité mineur signalé pour transparence** : en diagnostiquant ce problème de formatage (`cat -A .env.local` pour voir les fins de ligne), la clé service_role est apparue en clair dans une sortie d'outil de cette session — jamais commitée, jamais transmise ailleurs, mais visible dans l'historique de cette conversation. Recommandé à Angenor de **régénérer cette clé depuis Supabase Dashboard > Project Settings > API** par précaution, même si le risque réel est faible (clé jamais sortie de cet environnement de développement).
+
+**2. Même piège PGRST201 (relation ambiguë) trouvé sur DEUX requêtes supplémentaires de `/apercu`, jamais exercées jusqu'ici faute de clé service_role pour aller jusqu'au bout du test** : `beneficiaires` (3 FK vers `profiles` : `created_by`/`profile_id`/`updated_by`) et `liens_parent_beneficiaire` (2 FK : `parent_profile_id`/`revoque_par`). Les deux embeds `profiles(email)` échouaient silencieusement (`data: undefined`, page affichant "Aucun bénéficiaire avec un compte actif" au lieu d'une erreur) — corrigés en `profiles!beneficiaires_profile_id_fkey(email)` et `profiles!liens_parent_beneficiaire_parent_profile_id_fkey(email)`. 4e et 5e occurrences de ce piège précis dans ce projet.
+
+**Vérification bout en bout, cette fois avec la vraie clé** : `tests/e2e/impersonation-fondateur.spec.ts` étendu avec un test qui suit le cycle complet réel — connexion Fondateur → "Se connecter en tant que" sur `e2e-beneficiaire-fixture` → atterrit sur `/mon-espace/[id]`, bannière d'impersonation visible, vraie Boussole d'Autonomie affichée → "Quitter l'impersonation" → session Fondateur restaurée automatiquement, `/dashboard` réaffiche le panorama plateforme sans reconnexion manuelle. Non-régression complète (`apercu-fondateur`/`dashboard`/`navigation`/`auth`/`mon-espace-beneficiaire`/`espace-parent`). `tsc --noEmit` propre.
+
 ## 2026-07-24 — Mode Aperçu (2/2) : impersonation par rôle réel, exemples complétés pour tous les rôles Structure
 
 Suite du mode Aperçu (voir entrées "Mode Aperçu Fondateur" et "Impersonation Fondateur" ci-dessous) : demande d'Angenor de "créer tous les exemples rôles" avec des boutons d'action conformes à leur mission. Le bouton "Voir" (aperçu organisation) force `ROLES_APERCU` — un ensemble large qui montre tous les boutons possibles à la fois, utile pour explorer vite, mais **pas une expérience fidèle** à ce qu'un vrai Directeur ou Formateur voit individuellement.

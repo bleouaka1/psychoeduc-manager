@@ -42,15 +42,20 @@ export default async function ApercuPage({ searchParams }: { searchParams: Promi
 
   const [{ data: organisations }, { data: beneficiairesAvecCompte }, { data: liensParents }, { data: membresStructure }] = await Promise.all([
     supabase.from('organisations').select('id, nom, type_organisation, created_at').order('nom'),
+    // profiles!beneficiaires_profile_id_fkey : beneficiaires a 3 FK vers profiles
+    // (created_by/profile_id/updated_by) — même piège que membres_organisations ci-dessous,
+    // sans le hint la requête échoue silencieusement (PGRST201, data reste undefined).
     supabase
       .from('beneficiaires')
-      .select('id, nom, prenoms, profile_id, profiles(email)')
+      .select('id, nom, prenoms, profile_id, profiles!beneficiaires_profile_id_fkey(email)')
       .not('profile_id', 'is', null)
       .order('created_at', { ascending: false })
       .limit(50),
+    // profiles!liens_parent_beneficiaire_parent_profile_id_fkey : cette table a aussi 2 FK
+    // vers profiles (parent_profile_id/revoque_par), même correctif nécessaire.
     supabase
       .from('liens_parent_beneficiaire')
-      .select('parent_profile_id, profiles(email), beneficiaires(nom, prenoms)')
+      .select('parent_profile_id, profiles!liens_parent_beneficiaire_parent_profile_id_fkey(email), beneficiaires(nom, prenoms)')
       .eq('statut', 'actif')
       .order('created_at', { ascending: false })
       .limit(50),

@@ -11,8 +11,7 @@ async function connecter(page: import('@playwright/test').Page) {
   await expect(page).toHaveURL('http://localhost:3000/dashboard', { timeout: 30000 })
 }
 
-test('la section impersonation de /apercu liste des comptes réels et échoue proprement sans SUPABASE_SERVICE_ROLE_KEY', async ({ page }) => {
-  test.setTimeout(60_000)
+test('la section impersonation de /apercu liste des rôles réels', async ({ page }) => {
   const erreursConsole: string[] = []
   page.on('pageerror', (err) => erreursConsole.push(err.message))
 
@@ -30,17 +29,36 @@ test('la section impersonation de /apercu liste des comptes réels et échoue pr
     await expect(page.getByText(role, { exact: true })).toBeVisible()
   }
 
-  const panelBeneficiaires = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Mon Espace — bénéficiaires' }) })
-  const premiereLigne = panelBeneficiaires.locator('li').first()
+  expect(erreursConsole, `Erreurs JS inattendues: ${erreursConsole.join('\n')}`).toEqual([])
+})
 
-  // Sans SUPABASE_SERVICE_ROLE_KEY dans .env.local (pas encore ajoutée à ce stade), le
-  // bouton doit échouer proprement — jamais une page d'erreur Next.js brute (crash serveur).
-  if (await premiereLigne.count()) {
-    await premiereLigne.getByRole('button', { name: 'Se connecter en tant que' }).click()
-    await page.waitForLoadState('networkidle')
-    await expect(page).toHaveURL(/\/apercu\?erreur=/)
-    await expect(page.getByText(/SUPABASE_SERVICE_ROLE_KEY|Impossible de générer la session/)).toBeVisible()
-  }
+test("un Fondateur se connecte réellement en tant qu'un bénéficiaire, voit sa Boussole d'Autonomie, puis retrouve sa propre session en quittant l'impersonation", async ({ page }) => {
+  test.setTimeout(90_000)
+  const erreursConsole: string[] = []
+  page.on('pageerror', (err) => erreursConsole.push(err.message))
+
+  await connecter(page)
+  await page.goto('/apercu')
+
+  const panelBeneficiaires = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Mon Espace — bénéficiaires' }) })
+  const ligneBeneficiaire = panelBeneficiaires.locator('li').filter({ hasText: 'Fixture Beneficiaire' })
+  await expect(ligneBeneficiaire).toBeVisible()
+  await ligneBeneficiaire.getByRole('button', { name: 'Se connecter en tant que' }).click()
+  await page.waitForLoadState('networkidle')
+
+  // Un seul dossier lié à ce profil : redirection directe vers /mon-espace/[id].
+  await expect(page).toHaveURL(/\/mon-espace(\/[\w-]+)?$/, { timeout: 30000 })
+  await expect(page.getByText('Impersonation Fondateur en cours')).toBeVisible()
+  await expect(page.getByText(/Boussole d.Autonomie/)).toBeVisible()
+
+  // Quitter l'impersonation restaure la session Fondateur sans avoir à se reconnecter.
+  await page.getByRole('button', { name: "Quitter l'impersonation" }).click()
+  await page.waitForLoadState('networkidle')
+  await expect(page).toHaveURL('http://localhost:3000/apercu', { timeout: 15000 })
+
+  // La session restaurée est bien celle du Fondateur, pas une session délogée.
+  await page.goto('/dashboard')
+  await expect(page.getByText('Cockpit Fondateur')).toBeVisible()
 
   expect(erreursConsole, `Erreurs JS inattendues: ${erreursConsole.join('\n')}`).toEqual([])
 })
