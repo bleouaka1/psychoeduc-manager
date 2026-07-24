@@ -62,7 +62,9 @@ test('un Directeur crée un paiement de scolarité, l\'apure par deux versements
   await ligneAFacturer.getByRole('button', { name: 'Générer' }).click()
   await page.waitForLoadState('networkidle')
 
-  await expect(page.getByText(/^FA-\d{4}-\d{4}$/)).toBeVisible()
+  // La facture générée est la plus récente (liste triée par created_at desc) — un getByText
+  // non scopé matcherait aussi les factures FA-* d'un précédent run sur ce même fixture.
+  await expect(page.locator('li').first().getByText(/^FA-\d{4}-\d{4}$/)).toBeVisible()
   // Une fois facturé, le paiement disparaît de la liste "à facturer".
   await expect(page.locator('li').filter({ hasText: periode }).getByRole('button', { name: 'Générer' })).toHaveCount(0)
 

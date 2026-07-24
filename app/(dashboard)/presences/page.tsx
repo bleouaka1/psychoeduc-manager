@@ -3,7 +3,7 @@ import { CalendarCheck, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader, Panel, EmptyState, StatusPill } from '../_components/ui'
 import { getMonOrganisation } from '../_lib/getMonOrganisation'
-import { creerClasse, inscrireBeneficiaire, enregistrerPresence } from './actions'
+import { creerClasse, inscrireBeneficiaire, enregistrerPresence, basculerCohorte } from './actions'
 
 const SEUIL_ALERTE_ABSENCES = 3
 
@@ -43,6 +43,9 @@ export default async function PresencesPage({ searchParams }: { searchParams: Pr
   const classeActive = classeId ?? classes?.[0]?.id ?? null
 
   const peutGerer = organisation.roles.some((r) => ['directeur', 'coordinateur', 'promoteur', 'administrateur', 'educateur', 'formateur'].includes(r))
+  // Bascule de cohorte (§4.7) : action structurante sur des classes entières, réservée aux
+  // rôles qui peuvent déjà créer une classe (peut_creer('classes_groupes', ...)) — pas Formateur.
+  const peutBasculerCohorte = organisation.roles.some((r) => ['directeur', 'coordinateur', 'promoteur', 'administrateur'].includes(r))
 
   let roster: any[] = []
   let presencesDuJour = new Map<string, string>()
@@ -165,6 +168,22 @@ export default async function PresencesPage({ searchParams }: { searchParams: Pr
                   </button>
                 </form>
               )}
+            </Panel>
+          )}
+
+          {peutBasculerCohorte && (
+            <Panel title="Bascule de cohorte" className="mt-6">
+              <p className="text-text-muted text-sm mb-4">
+                Fait passer tous les bénéficiaires actuellement inscrits dans cette classe vers une nouvelle classe/cohorte, en un clic. L'ancienne classe et son historique de présences restent intacts, jamais supprimés.
+              </p>
+              <form action={basculerCohorte.bind(null, classeActive)} className="flex flex-wrap items-center gap-2.5">
+                <input name="nouveau_nom" required placeholder="Nom de la nouvelle classe" className="flex-1 min-w-[200px] bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary" />
+                <input name="niveau" placeholder="Niveau (ex: CE2)" className="w-40 bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary" />
+                <input name="annee_scolaire" placeholder="Année scolaire (ex: 2026-2027)" className="w-48 bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary" />
+                <button type="submit" className="bg-bg-card border border-border-soft text-text-primary text-[13px] font-medium px-4 py-2 rounded-full">
+                  Basculer la cohorte
+                </button>
+              </form>
             </Panel>
           )}
         </>

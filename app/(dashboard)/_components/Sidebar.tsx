@@ -35,6 +35,7 @@ import {
   Wallet,
   Receipt,
   Settings2,
+  FileBarChart,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -87,6 +88,7 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
       { href: '/parametres-organisation', label: 'Paramètres organisation', icon: Settings2 },
       { href: '/archives', label: 'Archives', icon: Archive },
       { href: '/audit', label: 'Journal d’audit', icon: ScrollText },
+      { href: '/rapport-impact', label: 'Rapport d’impact', icon: FileBarChart },
       { href: '/support', label: 'Support', icon: LifeBuoy },
       { href: '/parametres', label: 'Paramètres', icon: Settings },
       { href: '/statistiques', label: 'Statistiques', icon: BarChart2 },

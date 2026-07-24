@@ -1,3 +1,22 @@
+# Journal d'autonomie — session du 2026-07-24 : Compte Structure, étapes 8 à 10/10 (document clos)
+
+Session en mode autonome complet sur `PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md` (§7.7 de ce document exige ce journal). Détail exhaustif de chaque décision, écart et bug trouvé dans `DECISIONS_LOG.md` (entrées "Compte Structure, étape 8/10" à "étape 10/10") — ce fichier n'en reprend que le résumé exécutif pour respecter la lettre de la consigne sans dupliquer.
+
+**Livré cette session** : module Gestion Administrative complet (Présences, Dossiers, Paiements, Facturation — étape 8/10), niveau Promoteur/multi-établissements (étape 9/10), journal d'audit lisible + rapport d'impact + bascule de cohorte (étape 10/10). **Le document est désormais intégralement livré (10/10 étapes)**, en plusieurs commits séparés par sous-module, conformément à l'instruction §8 ("petites itérations validables").
+
+**Revue de sécurité (§7.8 du document, effectuée en fin de session, pas seulement au fil de l'eau)** :
+1. **RLS activée avant exposition** sur la seule nouvelle table de cette session (`versements_scolarite`) — insert-only, aucune policy update/delete, cohérente avec le principe append-only.
+2. **Aucune suppression physique introduite** : établissements (`actif=false`), inscriptions de cohorte (`statut='transferee'`), pièces de dossier (statut, jamais de ligne retirée) — tout par changement de statut.
+3. **Aucune fiche d'entretien exposée** au nouveau journal d'audit lisible ni au rapport d'impact — vérifié explicitement (le rapport n'agrège que des compteurs, jamais un nom ; l'audit ne rend jamais `donnees_avant`/`donnees_apres`).
+4. **Trois vrais trous de permission trouvés et corrigés** (détail DECISIONS_LOG.md) : Directeur/`classes_groupes` (créer/modifier), Formateur-Promoteur/`inscriptions_classes`, Directeur-Promoteur/`insertions_professionnelles` (lecture seule, rapport d'impact). Chacun vérifié non consommé par du code existant avant élargissement.
+5. **Une entrée de session antérieure corrigée après coup** (pas une nouvelle faille, une inexactitude documentaire) : un "trou de permission" `presences` affirmé lors de l'étape 8/10 (1/4) s'est révélé déjà couvert depuis l'étape 1/10 — signalé et corrigé dans DECISIONS_LOG.md plutôt que laissé tel quel.
+6. **Aucune clé de paiement, aucun secret introduit** — grep ciblé négatif, aucun prestataire de paiement touché cette session (hors périmètre des étapes 8-10).
+7. **Portées volontairement réduites, signalées plutôt que bâclées** : filtrage par établissement des pages métier existantes non rétrofité (étape 9/10), génération PDF serveur jamais implémentée (print-to-PDF navigateur partout, cohérent avec le reste du projet).
+
+Aucun point marqué "à revoir humainement" cette session — aucune ambiguïté de sécurité réelle rencontrée, seulement des choix de portée déjà documentés ci-dessus.
+
+---
+
 # Journal d'autonomie — session du 2026-07-07 (nuit)
 
 Fichier de suivi obligatoire pendant le mode autonome complet (`PROMPT-MODE-AUTONOME.md`). Mis à jour à chaque étape importante. Angenor lira ce fichier au réveil pour tout comprendre sans relire le code.

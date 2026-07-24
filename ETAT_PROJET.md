@@ -1,4 +1,13 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 9/10 : Promoteur/multi-établissements)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure — document intégralement livré, 10/10)
+
+## Résumé (lisible en 30 secondes) — Compte Structure, étape 10/10 : journal d'audit lisible, rapport d'impact, bascule de cohorte — DOCUMENT CLOS
+- `/audit` (existant) rendu réellement "lisible" (phrases françaises via un lexique action/table) au lieu d'un log technique brut — jamais de rendu des snapshots jsonb bruts.
+- Nouvelle page `/rapport-impact` (Directeur/Promoteur) : IGA moyen, taux de présence, taux d'insertion agrégés sur une période, **jamais un nom de bénéficiaire** — pensé pour un bailleur, export via print-to-PDF navigateur (comme les factures).
+- Nouvelle action "Bascule de cohorte" sur `/presences` : fait passer une classe entière vers une nouvelle cohorte en un clic, sans suppression (ancienne classe et historique de présences intacts).
+- Petit trou de permission corrigé : Directeur/Promoteur n'avaient pas accès en lecture à `insertions_professionnelles`, nécessaire au taux d'insertion.
+- Deux échecs de test rencontrés en vérifiant, aucun n'était applicatif : un faux négatif de contention environnementale sur `/audit` (confirmé vert sur 2 runs suivants), et un vrai bug de scoping dans `paiements-structure.spec.ts` (assertion facture non scopée, corrigée).
+- Vérifié : `tests/e2e/audit-rapport-impact-structure.spec.ts`, non-régression complète de la suite Structure. `tsc --noEmit` propre.
+- **Le document `PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md` (10/10 étapes) est intégralement livré.** Portées réduites/signalées au fil du chantier : Funnel 6 étapes + classement IPP équipe (étape 4), filtrage par établissement des pages métier existantes (étape 9), génération PDF serveur (jamais implémentée, print-to-PDF partout), actions groupées sur cohorte au-delà de la bascule annuelle. Détail complet dans DECISIONS_LOG.md.
 
 ## Résumé (lisible en 30 secondes) — Compte Structure, étape 9/10 : niveau Promoteur / multi-établissements
 - `/etablissements` (Directeur/Promoteur) : rattacher/fermer/réactiver des établissements — schéma/RLS/permissions déjà en place depuis l'étape 1/10, jamais consommés par une UI jusqu'ici.
