@@ -13,7 +13,10 @@ async function connecter(page: import('@playwright/test').Page, email: string, p
   await page.fill('#email', email)
   await page.fill('#password', password)
   await page.click('button[type="submit"]')
-  await expect(page).toHaveURL('http://localhost:3000/dashboard', { timeout: 30000 })
+  // Destination dépend du rôle/type de compte (Directeur → /dashboard, mais le fixture
+  // parent peut déjà avoir un lien actif d'un run précédent et atterrir sur /espace-parent
+  // dès la connexion) — on vérifie juste que la connexion a réussi.
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: 30000 })
 }
 
 // Le formulaire "membre d'équipe" est le seul à porter select[name="role_propose"] ;
@@ -91,7 +94,7 @@ test('un parent déjà inscrit peut accepter une invitation liée à un bénéfi
   await pageParent.goto(`/invitation?token=${token}`)
   await expect(pageParent.getByText(new RegExp(BENEFICIAIRE_NOM.split(' ')[1]))).toBeVisible()
   await pageParent.click('button:has-text("Accepter l\'invitation")')
-  await expect(pageParent).toHaveURL('http://localhost:3000/dashboard', { timeout: 20000 })
+  await expect(pageParent).toHaveURL('http://localhost:3000/espace-parent', { timeout: 20000 })
 
   await pageParent.goto(`/invitation?token=${token}`)
   await expect(pageParent.getByText('Lien invalide ou expiré')).toBeVisible()

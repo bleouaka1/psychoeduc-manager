@@ -1,4 +1,4 @@
-# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 6/10)
+# État PsychoÉduc Manager — dernière mise à jour : 2026-07-24 (Compte Structure étape 7/10)
 
 ## Résumé (lisible en 30 secondes) — Compte Structure, étape 1/10 : fondations (`PROMPT-CLAUDE-CODE-COMPTE-STRUCTURE-1.md`)
 - Schéma + RLS pour le Compte Structure, construits comme une **extension** du système générique multi-tenant existant (organisations/membres_organisations/roles_utilisateurs) plutôt qu'un schéma parallèle — écart majeur par rapport au document source, détaillé dans DECISIONS_LOG.md.
@@ -12,7 +12,8 @@
 - **Étape 4/10 livrée** : `/dashboard` branche maintenant Fondateur (panorama plateforme, intact) vs Structure (nouveau tableau de bord org-scopé) selon `is_fondateur()`. Régression trouvée et corrigée sur `e2e-fixture` (compte Structure historiquement testé comme s'il était fondateur, par accident d'absence de branchement jusqu'ici).
 - **Étape 5/10 livrée** : tableau de bord différencié par rôle — un Formateur (sans rôle de gouvernance) voit désormais "Mes bénéficiaires assignés" plutôt que des compteurs org-wide qu'il ne peut pas explorer (RLS le lui interdisait déjà, l'UI le reflète maintenant honnêtement).
 - **Étape 6/10 livrée** : le module Entretien (fiches Générale/Spécialisée) devient utilisable côté Structure — n'existait auparavant que sous `/solo`. Nouvelles routes `/beneficiaires/[id]` + `/beneficiaires/[id]/entretiens/[entretienId]` (Cockpit), champ Interlocuteur ajouté aux deux fiches (Bénéficiaire/Parent-Tuteur/conjoint), formulaire "Ajouter un bénéficiaire" ajouté à `/beneficiaires` (n'existait nulle part hors Solo). Composants `FicheEntretienGeneral`/`FicheEntretienSpecialise` refactorés en injection de dépendances plutôt que dupliqués.
-- **Étapes 7 à 10 du document restent à construire** (Espace Parent, module Gestion Administrative, multi-établissements, audit/rapport d'impact/bascule de cohorte).
+- **Étape 7/10 livrée** : Espace Parent (`/espace-parent`) — présences brutes + tendance de progression synthétique (jamais un score chiffré, calculé par une fonction SECURITY DEFINER qui ne renvoie qu'une étiquette). Bug RLS trouvé et corrigé (embed PostgREST imbriqué = INNER JOIN filtré par RLS des tables embarquées, la page se redirigeait vers /login malgré une connexion réussie).
+- **Étapes 8 à 10 du document restent à construire** (module Gestion Administrative, multi-établissements, audit/rapport d'impact/bascule de cohorte).
 
 # État PsychoÉduc Manager — dernière mise à jour : 2026-07-13 (Suppression/Archives bénéficiaires + refonte /mon-espace + 3 pages Explorer)
 

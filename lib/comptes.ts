@@ -45,6 +45,17 @@ export async function destinationOrganisationActive(supabase: SupabaseClient): P
   return null
 }
 
+/** §4.3 — un parent/tuteur (lien actif vers au moins un bénéficiaire, jamais membre
+ * d'une organisation ni bénéficiaire lui-même) a son propre espace en lecture seule. */
+export async function compteEstParent(supabase: SupabaseClient): Promise<boolean> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return false
+  const { count } = await supabase.from('liens_parent_beneficiaire').select('id', { count: 'exact', head: true }).eq('parent_profile_id', user.id).eq('statut', 'actif')
+  return (count ?? 0) > 0
+}
+
 export async function resoudreDestinationConnexion(supabase: SupabaseClient): Promise<string> {
   const {
     data: { user },
@@ -55,6 +66,7 @@ export async function resoudreDestinationConnexion(supabase: SupabaseClient): Pr
   if (destinationOrg) return destinationOrg
 
   if (await compteAAccesBeneficiaire(supabase)) return '/mon-espace'
+  if (await compteEstParent(supabase)) return '/espace-parent'
   return '/dashboard'
 }
 
