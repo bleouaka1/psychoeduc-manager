@@ -1,7 +1,8 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
-import { chargerProjetsAvecProgression, chargerFilActivite } from '@/lib/projetVie'
+import { chargerProjetsAvecProgression, chargerFilActivite, chargerObjectifsAvecCompetence } from '@/lib/projetVie'
 import { creerProjetVieBeneficiaireAction } from '../actions'
 
 const STATUT_LABEL: Record<string, string> = {
@@ -12,16 +13,25 @@ const STATUT_LABEL: Record<string, string> = {
   abandonne: 'Abandonné',
 }
 
+const STATUT_OBJECTIF_LABEL: Record<string, string> = {
+  a_venir: 'À venir',
+  en_cours: 'En cours',
+  atteint: 'Atteint',
+}
+
 export default async function MesProjetsViePage({ params }: { params: Promise<{ beneficiaireId: string }> }) {
   const { beneficiaireId } = await params
   const supabase = await createClient()
 
-  const [dossiers, projets, fil] = await Promise.all([
+  const [dossiers, projets, fil, objectifs] = await Promise.all([
     chargerDossiersBeneficiaire(supabase),
     chargerProjetsAvecProgression(supabase, beneficiaireId),
     chargerFilActivite(supabase, beneficiaireId),
+    chargerObjectifsAvecCompetence(supabase, beneficiaireId),
   ])
   if (!dossiers.find((d) => d.id === beneficiaireId)) notFound()
+
+  const formatterDate = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 
   return (
     <div>
@@ -65,6 +75,33 @@ export default async function MesProjetsViePage({ params }: { params: Promise<{ 
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {objectifs.length > 0 && (
+        <div className="bg-bg-card border border-border-soft rounded-2xl p-6 mb-6">
+          <h2 className="font-display font-medium text-[16.5px] text-text-primary mb-4">Mes objectifs</h2>
+          <div className="space-y-3">
+            {objectifs.map((o) => (
+              <div key={o.id} className="border-b border-border-soft/60 last:border-0 pb-3 last:pb-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                  <span className="text-text-primary text-[13.5px] font-medium">{o.titre}</span>
+                  <span className="text-[11px] bg-bg-surface border border-border-soft text-text-muted px-2 py-0.5 rounded-full whitespace-nowrap">
+                    {STATUT_OBJECTIF_LABEL[o.statut] ?? o.statut}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap text-[11.5px] text-text-muted">
+                  {o.dateCible && <span>Échéance : {formatterDate.format(new Date(o.dateCible))}</span>}
+                  {o.competenceLibelle && <span className="text-accent-gold">Compétence liée : {o.competenceLibelle}</span>}
+                </div>
+                {o.competenceLibelle && o.statut !== 'atteint' && (
+                  <Link href={`/mon-espace/${beneficiaireId}/revisions`} className="text-accent-gold text-[11.5px] mt-1 inline-block hover:underline">
+                    Réviser pour progresser →
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

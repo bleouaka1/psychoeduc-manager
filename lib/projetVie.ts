@@ -54,6 +54,37 @@ export async function chargerProjetsAvecProgression(supabase: SupabaseClient, be
   })
 }
 
+export type ObjectifAvecCompetence = {
+  id: string
+  titre: string
+  statut: string
+  dateCible: string | null
+  projetVieId: string | null
+  competenceLibelle: string | null
+}
+
+/** Objectifs individuels (dashboard bénéficiaire v2, Lot C — prompt §15 : "Objectif,
+ * Progression, Échéance, Compétences liées") — jusqu'ici seule la progression agrégée
+ * par projet était exposée au bénéficiaire (chargerProjetsAvecProgression), jamais le
+ * détail de chaque objectif. `competence_id` (migration 20260735000000) est nullable :
+ * un objectif reste affiché même sans compétence liée. */
+export async function chargerObjectifsAvecCompetence(supabase: SupabaseClient, beneficiaireId: string): Promise<ObjectifAvecCompetence[]> {
+  const { data } = await supabase
+    .from('objectifs_beneficiaire')
+    .select('id, titre, statut, date_cible, projet_vie_id, icc_competences(libelle)')
+    .eq('beneficiaire_id', beneficiaireId)
+    .order('ordre', { ascending: true })
+
+  return (data ?? []).map((o: any) => ({
+    id: o.id,
+    titre: o.titre,
+    statut: o.statut,
+    dateCible: o.date_cible,
+    projetVieId: o.projet_vie_id,
+    competenceLibelle: o.icc_competences?.libelle ?? null,
+  }))
+}
+
 export async function chargerFilActivite(supabase: SupabaseClient, beneficiaireId: string): Promise<EvenementFilActivite[]> {
   const { data: beneficiaire } = await supabase.from('beneficiaires').select('profile_id, created_at').eq('id', beneficiaireId).maybeSingle()
 

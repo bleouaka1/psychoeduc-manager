@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Store, Users2, Rocket, LineChart, BookOpen, FileText } from 'lucide-react'
+import { Store, Users2, Rocket, LineChart, BookOpen, FileText, MessageCircle } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { chargerBoussoleAutonomie, chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
@@ -9,13 +9,22 @@ import { agregerScoresIcc } from '@/lib/icc'
 import { chargerScoreMoyenQuiz } from '@/lib/quizRevisionServer'
 import { chargerMesCercles } from '@/lib/cerclesApprentissageServer'
 import { NIVEAU_LABEL } from '@/lib/iga'
+import { PHRASE_SAVOIR_ETRE } from '@/lib/icc'
 import { RadarAutonomie } from '../_components/RadarAutonomie'
 
-const TUILES_EXPLORER = [
+/** Organisation en 4 catégories (dashboard bénéficiaire v2, Lot A) : regroupement
+ * additif des cartes déjà existantes, aucune supprimée ni déplacée hors d'atteinte —
+ * seule la relecture par titre de section change. "Session professionnelle" est
+ * l'intitulé affiché pour /insertion (module Insertion professionnelle existant,
+ * pas un doublon — cf. PLAN_DASHBOARD_BENEFICIAIRE_V2.md, écart 1). */
+const TUILES_MON_AVENIR = [
+  { label: 'Session professionnelle', icon: Rocket, route: 'insertion' },
+  { label: 'Intelligence économique', icon: LineChart, route: 'intelligence-economique' },
+] as const
+
+const TUILES_MES_SERVICES = [
   { label: 'Marketplace', icon: Store, route: 'marketplace' },
   { label: 'Cercles d’apprentissage', icon: Users2, route: 'cercles' },
-  { label: 'Insertion professionnelle', icon: Rocket, route: 'insertion' },
-  { label: 'Intelligence économique', icon: LineChart, route: 'intelligence-economique' },
 ] as const
 
 export default async function MonEspaceDossierPage({ params }: { params: Promise<{ beneficiaireId: string }> }) {
@@ -47,6 +56,11 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       <p className="font-data text-[11px] tracking-[0.15em] text-accent-gold uppercase mb-2.5">Mon espace</p>
       <h1 className="font-cinzel font-semibold text-4xl text-text-primary">Bonjour {dossier.prenoms}</h1>
       <p className="text-text-muted text-sm mt-1.5 mb-9">{dossier.organisationNom}</p>
+
+      {/* ============================== ME CONNAÎTRE ============================== */}
+      <p id="boussole" className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">
+        Me connaître
+      </p>
 
       {/* Boussole d'Autonomie */}
       <div className="bg-bg-card border border-border-soft rounded-[10px] p-8 mb-6 relative overflow-hidden">
@@ -80,58 +94,9 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         )}
       </div>
 
-      {/* Projet de vie */}
-      <Link
-        href={`/mon-espace/${beneficiaireId}/projets-vie`}
-        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-cinzel text-[16px] text-text-primary">Projet de vie</h2>
-          {projetsActifs.length > 1 && <span className="text-text-muted text-[11.5px]">+ {projetsActifs.length - 1} autre(s) projet(s) actif(s)</span>}
-        </div>
-        {!projetPrincipal ? (
-          <p className="text-text-muted text-sm">Aucun projet de vie défini pour l’instant. Voir mes projets de vie →</p>
-        ) : (
-          <>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-text-primary text-[14px] font-medium">{projetPrincipal.titre}</span>
-              {projetPrincipal.progression != null && <span className="font-data text-accent-gold text-[13px]">{projetPrincipal.progression}%</span>}
-            </div>
-            {projetPrincipal.progression != null && (
-              <div className="h-1.5 bg-bg-surface rounded-full overflow-hidden mb-3">
-                <div className="h-full bg-gradient-to-r from-accent-gold to-accent-gold-dim rounded-full" style={{ width: `${projetPrincipal.progression}%` }} />
-              </div>
-            )}
-            {dernierEvenement && <p className="text-text-muted text-[12.5px] mt-2">{dernierEvenement.message}</p>}
-            <p className="text-accent-gold text-[12.5px] mt-3">Voir mes projets de vie →</p>
-          </>
-        )}
-      </Link>
-
-      {/* Explorer */}
-      <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mt-10 mb-3.5">Explorer</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
-        {TUILES_EXPLORER.map((tuile) => {
-          const Icon = tuile.icon
-          return (
-            <Link
-              key={tuile.label}
-              href={`/mon-espace/${beneficiaireId}/${tuile.route}`}
-              className="bg-bg-card border border-border-soft rounded-[8px] p-5 text-center hover:border-accent-gold-dim transition-colors"
-            >
-              <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-accent-gold/10 flex items-center justify-center text-accent-gold">
-                <Icon size={16} />
-              </div>
-              <p className="font-cinzel text-[12.5px] text-text-primary leading-tight">{tuile.label}</p>
-            </Link>
-          )
-        })}
-      </div>
-
-      {/* Profil professionnel — synthèse ICC × IGA (handoff-icc-cv-navigation.md §1) :
-          vue employabilité distincte de la Boussole d'Autonomie, jamais un second radar. */}
+      {/* Profil professionnel — synthèse ICC × IGA */}
       {profilProfessionnelDisponible && (
-        <div className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
+        <div id="profil-professionnel" className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
           <h2 className="font-cinzel text-[16px] text-text-primary mb-1">Profil professionnel</h2>
           <p className="text-text-muted text-[11.5px] mb-5">
             Une vue d’ensemble honnête de ta progression — pas un score à optimiser, un constat.
@@ -165,7 +130,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         </div>
       )}
 
-      {/* ICC */}
+      {/* ICC par formation */}
       {formationsIcc.map((f) => (
         <div key={f.formationId} className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
           <h2 className="font-cinzel text-[16px] text-text-primary mb-1">Indice de Compétences — {f.formationTitre}</h2>
@@ -174,22 +139,158 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
             <div>
               <p className="text-text-muted text-[11px] mb-1">Savoirs</p>
               <p className="font-data text-2xl text-accent-gold">{f.score.savoirs ?? '—'}</p>
+              {f.competencesSavoir.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {f.competencesSavoir.map((c) => (
+                    <li key={c.libelle} className="text-text-muted text-[11.5px] leading-snug">
+                      Compétence validée : {c.libelle}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div>
               <p className="text-text-muted text-[11px] mb-1">Savoir-faire</p>
               <p className="font-data text-2xl text-accent-gold">{f.score.savoirFaire ?? '—'}</p>
+              {f.competencesSavoirFaire.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {f.competencesSavoirFaire.map((c) => (
+                    <li key={c.libelle} className="text-text-muted text-[11.5px] leading-snug">
+                      {c.libelle} — niveau {c.niveau}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div>
               <p className="text-text-muted text-[11px] mb-1">Savoir-être</p>
               <p className="font-data text-2xl text-accent-gold">{f.score.savoirEtre ?? '—'}</p>
+              {f.tagsSavoirEtre.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {f.tagsSavoirEtre.map((tag) => (
+                    <li key={tag} className="text-text-muted text-[11.5px] leading-snug">
+                      {PHRASE_SAVOIR_ETRE[tag as keyof typeof PHRASE_SAVOIR_ETRE] ?? tag}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
       ))}
 
-      <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mt-10 mb-3.5">Tes espaces</p>
+      {/* Projet de vie / Objectifs */}
+      <Link
+        href={`/mon-espace/${beneficiaireId}/projets-vie`}
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-10 hover:border-accent-gold-dim transition-colors"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-cinzel text-[16px] text-text-primary">Projet de vie</h2>
+          {projetsActifs.length > 1 && <span className="text-text-muted text-[11.5px]">+ {projetsActifs.length - 1} autre(s) projet(s) actif(s)</span>}
+        </div>
+        {!projetPrincipal ? (
+          <p className="text-text-muted text-sm">Aucun projet de vie défini pour l’instant. Voir mes projets de vie →</p>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-text-primary text-[14px] font-medium">{projetPrincipal.titre}</span>
+              {projetPrincipal.progression != null && <span className="font-data text-accent-gold text-[13px]">{projetPrincipal.progression}%</span>}
+            </div>
+            {projetPrincipal.progression != null && (
+              <div className="h-1.5 bg-bg-surface rounded-full overflow-hidden mb-3">
+                <div className="h-full bg-gradient-to-r from-accent-gold to-accent-gold-dim rounded-full" style={{ width: `${projetPrincipal.progression}%` }} />
+              </div>
+            )}
+            {dernierEvenement && <p className="text-text-muted text-[12.5px] mt-2">{dernierEvenement.message}</p>}
+            <p className="text-accent-gold text-[12.5px] mt-3">Voir mes projets de vie →</p>
+          </>
+        )}
+      </Link>
 
-      {/* Cercles d'apprentissage */}
+      {/* ============================== APPRENDRE ============================== */}
+      <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Apprendre</p>
+
+      <Link
+        href={`/mon-espace/${beneficiaireId}/revisions`}
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <BookOpen size={16} className="text-accent-gold" />
+          <div>
+            <h2 className="font-cinzel text-[16px] text-text-primary">Bibliothèque de révision</h2>
+            <p className="text-text-muted text-[12.5px] mt-1">Dépose un support de formation et génère un quiz pour réviser.</p>
+          </div>
+        </div>
+      </Link>
+
+      <Link
+        href={`/mon-espace/${beneficiaireId}/tuteurs`}
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-10 hover:border-accent-gold-dim transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <MessageCircle size={16} className="text-accent-gold" />
+          <div>
+            <h2 className="font-cinzel text-[16px] text-text-primary">Espace Tuteurs</h2>
+            <p className="text-text-muted text-[12.5px] mt-1">Dialogue avec un tuteur IA pour apprendre, ou entraîne-toi avec une simulation d’entretien.</p>
+          </div>
+        </div>
+      </Link>
+
+      {/* ============================== MON AVENIR ============================== */}
+      <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Mon avenir</p>
+
+      <div className="grid grid-cols-2 gap-3.5 mb-6">
+        {TUILES_MON_AVENIR.map((tuile) => {
+          const Icon = tuile.icon
+          return (
+            <Link
+              key={tuile.label}
+              href={`/mon-espace/${beneficiaireId}/${tuile.route}`}
+              className="bg-bg-card border border-border-soft rounded-[8px] p-5 text-center hover:border-accent-gold-dim transition-colors"
+            >
+              <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-accent-gold/10 flex items-center justify-center text-accent-gold">
+                <Icon size={16} />
+              </div>
+              <p className="font-cinzel text-[12.5px] text-text-primary leading-tight">{tuile.label}</p>
+            </Link>
+          )
+        })}
+      </div>
+
+      <Link
+        href={`/mon-espace/${beneficiaireId}/cv`}
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-10 hover:border-accent-gold-dim transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <FileText size={16} className="text-accent-gold" />
+          <div>
+            <h2 className="font-cinzel text-[16px] text-text-primary">Mon CV</h2>
+            <p className="text-text-muted text-[12.5px] mt-1">Génère un CV à partir de ton profil de compétences et de ta progression.</p>
+          </div>
+        </div>
+      </Link>
+
+      {/* ============================== MES SERVICES ============================== */}
+      <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Mes services</p>
+
+      <div className="grid grid-cols-2 gap-3.5 mb-6">
+        {TUILES_MES_SERVICES.map((tuile) => {
+          const Icon = tuile.icon
+          return (
+            <Link
+              key={tuile.label}
+              href={`/mon-espace/${beneficiaireId}/${tuile.route}`}
+              className="bg-bg-card border border-border-soft rounded-[8px] p-5 text-center hover:border-accent-gold-dim transition-colors"
+            >
+              <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-accent-gold/10 flex items-center justify-center text-accent-gold">
+                <Icon size={16} />
+              </div>
+              <p className="font-cinzel text-[12.5px] text-text-primary leading-tight">{tuile.label}</p>
+            </Link>
+          )
+        })}
+      </div>
+
       {cercles.length > 0 && (
         <Link
           href={`/mon-espace/${beneficiaireId}/cercles`}
@@ -208,7 +309,6 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         </Link>
       )}
 
-      {/* Capital social */}
       <Link
         href={`/mon-espace/${beneficiaireId}/capital-social`}
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
@@ -222,31 +322,13 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         </div>
       </Link>
 
-      {/* Bibliothèque / Révisions */}
       <Link
-        href={`/mon-espace/${beneficiaireId}/revisions`}
-        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
-      >
-        <div className="flex items-center gap-2.5">
-          <BookOpen size={16} className="text-accent-gold" />
-          <div>
-            <h2 className="font-cinzel text-[16px] text-text-primary">Bibliothèque de révision</h2>
-            <p className="text-text-muted text-[12.5px] mt-1">Dépose un support de formation et génère un quiz pour réviser.</p>
-          </div>
-        </div>
-      </Link>
-
-      {/* Génération de CV */}
-      <Link
-        href={`/mon-espace/${beneficiaireId}/cv`}
+        href={`/mon-espace/${beneficiaireId}/abonnement`}
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
       >
-        <div className="flex items-center gap-2.5">
-          <FileText size={16} className="text-accent-gold" />
-          <div>
-            <h2 className="font-cinzel text-[16px] text-text-primary">Mon CV</h2>
-            <p className="text-text-muted text-[12.5px] mt-1">Génère un CV à partir de ton profil de compétences et de ta progression.</p>
-          </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="font-cinzel text-[16px] text-text-primary">Mon abonnement</h2>
+          <span className="text-accent-gold text-[12.5px]">Voir le statut →</span>
         </div>
       </Link>
     </div>

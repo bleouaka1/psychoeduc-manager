@@ -39,6 +39,18 @@ export function calculerScoreSavoirFaire(evaluations: EvaluationSavoirFaire[]): 
  * observés au moins une fois pour cette formation. */
 export const TAGS_SAVOIR_ETRE = ['Ponctualité', 'Assiduité', 'Autonomie', 'Travail en équipe', 'Communication'] as const
 
+/** Phrase concrète par tag (dashboard bénéficiaire v2, Lot B) — possible ici sans risque
+ * grammatical car TAGS_SAVOIR_ETRE est un référentiel FIXE et connu (5 valeurs), à la
+ * différence des libellés Savoirs/Savoir-faire (texte libre du formateur, cf.
+ * lib/iccServer.ts pour pourquoi ceux-là ne sont jamais auto-conjugués). */
+export const PHRASE_SAVOIR_ETRE: Record<(typeof TAGS_SAVOIR_ETRE)[number], string> = {
+  Ponctualité: 'Tu es ponctuel(le)',
+  Assiduité: 'Tu es assidu(e)',
+  Autonomie: 'Tu fais preuve d’autonomie',
+  'Travail en équipe': 'Tu travailles bien en équipe',
+  Communication: 'Tu communiques clairement',
+}
+
 export function calculerScoreSavoirEtre(tagsObserves: string[]): number | null {
   if (tagsObserves.length === 0) return null
   const distincts = new Set(tagsObserves.filter((t) => (TAGS_SAVOIR_ETRE as readonly string[]).includes(t)))
