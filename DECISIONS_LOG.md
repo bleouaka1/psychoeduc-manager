@@ -2,6 +2,14 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-25 — Remédiation sécurité : sortie du projet de la clé service_role legacy exposée
+
+Suite à l'entrée précédente (clé service_role apparue en clair dans une sortie d'outil de diagnostic) — Angenor a demandé une révocation/régénération. Vérifié via `npx supabase projects api-keys` : ce projet a déjà migré vers le nouveau système de clés Supabase (`sb_publishable_...` pour anon, déjà en place) et possède une clé `sb_secret_...` de type "secret" (rôle `service_role` via `secret_jwt_template`) déjà provisionnée en parallèle des clés JWT historiques (`anon`/`service_role` legacy).
+
+**Ce qui a été fait automatiquement** : `SUPABASE_SERVICE_ROLE_KEY` dans `.env.local` pointe désormais vers cette clé `sb_secret_...` moderne, jamais affichée dans la conversation (valeur récupérée via `--reveal --output json`, redirigée directement vers un fichier, extraite et réinjectée par un script Node dont la sortie ne contenait que "OK"/"ECHEC", fichiers intermédiaires supprimés ensuite). Serveur de dev redémarré, cycle complet d'impersonation revérifié vert avec la nouvelle clé (`tests/e2e/impersonation-fondateur.spec.ts`).
+
+**Ce qui reste à faire manuellement par Angenor, hors de portée des outils disponibles pour cette session** : la CLI Supabase ne propose que la LECTURE des clés API (`projects api-keys`, aucun sous-commande de rotation/suppression) — aucun moyen outillé de révoquer spécifiquement l'ancienne clé JWT `service_role` sans passer par le Dashboard. Cette clé legacy reste donc techniquement valide jusqu'à une action manuelle d'Angenor (Dashboard > Project Settings > API > régénérer le secret JWT, ou retirer les clés API legacy si la migration complète vers le nouveau système est souhaitée) — signalé explicitement plutôt que laissé implicite, cette étape n'est PAS automatisable avec les outils actuellement disponibles.
+
 ## 2026-07-24 — Mode Aperçu, vérification end-to-end avec la vraie clé service_role
 
 Angenor a ajouté `SUPABASE_SERVICE_ROLE_KEY` à `.env.local`. Deux problèmes trouvés et corrigés avant que l'impersonation fonctionne réellement :
