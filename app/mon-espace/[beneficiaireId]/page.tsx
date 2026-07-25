@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Store, Users2, Rocket, LineChart } from 'lucide-react'
+import { Store, Users2, Rocket, LineChart, BookOpen } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { chargerBoussoleAutonomie, chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
@@ -167,7 +167,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       {/* Capital social */}
       <Link
         href={`/mon-espace/${beneficiaireId}/capital-social`}
-        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -175,6 +175,20 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
             <p className="text-text-muted text-[12.5px] mt-1">Les personnes et structures qui peuvent t’aider à avancer.</p>
           </div>
           <span className="font-data text-[11px] bg-sage-soft text-sage border border-sage/35 rounded-full px-3 py-1 whitespace-nowrap">Voir mon réseau →</span>
+        </div>
+      </Link>
+
+      {/* Bibliothèque / Révisions */}
+      <Link
+        href={`/mon-espace/${beneficiaireId}/revisions`}
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <BookOpen size={16} className="text-accent-gold" />
+          <div>
+            <h2 className="font-cinzel text-[16px] text-text-primary">Bibliothèque de révision</h2>
+            <p className="text-text-muted text-[12.5px] mt-1">Dépose un support de formation et génère un quiz pour réviser.</p>
+          </div>
         </div>
       </Link>
     </div>

@@ -2,6 +2,29 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-25 — Module Quiz de révision : palier gratuit (T1-T4/8), `handoff-quiz-revision-ia-2.md`
+
+Construit à partir d'un document de handoff externe, adapté au schéma réel du projet plutôt que suivi à la lettre — écarts documentés dans `PLAN_QUIZ_REVISION.md` avant le début du codage.
+
+**`quiz_documents` n'est pas une nouvelle table.** `documents_beneficiaires` (Étape 5) couvrait déjà exactement ce besoin (beneficiaire_id/organisation_id/nom_fichier/televerse_par) — étendue additivement (`type_source`, `contenu_texte`, `valide_par`/`valide_at`) plutôt que dupliquée. `users(id)` du document (table inexistante ici) remplacé par `profiles(id)` partout.
+
+**Collision de nom `quiz` détectée avant application de la migration.** Une table `quiz` existait déjà, liée à `cours` (système pédagogique de notation, sans rapport avec ce module). Mes tables nommées `quiz_revision`/`quiz_revision_tentatives` pour l'éviter — la table existante n'a pas été touchée. Leçon générale : toujours vérifier l'absence de collision de nom avant `CREATE TABLE IF NOT EXISTS` sur un projet de cette taille, l'absence d'erreur ne garantit pas la création réelle.
+
+**Aucun ledger financier parallèle.** Le projet a déjà `mouvements_financiers` (registre append-only central, Étape 15) et une dette technique documentée (réconciliation `transactions_wallet` ↔ `mouvements_financiers` jamais faite) — `credits_transactions` reste une table dédiée (nécessaire à la logique métier crédits/quiz) mais toute transaction avec mouvement d'argent réel doit aussi écrire une ligne dans `mouvements_financiers` (`credits_transactions.mouvement_financier_id`), pour ne jamais reproduire cette même erreur avec un deuxième ledger isolé.
+
+**Aucun parsing PDF/DOCX serveur n'existe dans ce projet** (vérifié explicitement, aucune dépendance `pdf-parse`/`mammoth`) — contrairement à ce que suppose le document source ("Extraire le texte du document (PDF/DOCX déjà uploadé)"). Palier gratuit construit avec un champ `contenu_texte` (collé ou déjà extrait) plutôt que d'ajouter une dépendance de parsing en silence — décision à revoir si un vrai besoin de upload PDF brut se confirme.
+
+**Trois écarts RLS réels trouvés en testant, pas en relisant le code :**
+1. `documents_beneficiaires_select` (Étape 5) n'avait aucune clause pour le bénéficiaire lui-même — même famille de bug que ICC/projets_vie/insertion professionnelle (sessions précédentes), reproduite ici sur une table plus ancienne jamais consommée par un bénéficiaire jusqu'à ce module.
+2. `documents_beneficiaires_insert` avait exactement le même écart côté écriture, découvert seulement en faisant échouer un vrai dépôt via Playwright ("Impossible de déposer ce document.") — la lecture avait été corrigée mais pas l'écriture dans la même passe, leçon à généraliser : corriger les deux sens RLS ensemble, pas l'un puis l'autre a posteriori.
+3. **Bug applicatif, pas RLS** : la page `/mon-espace/[id]/revisions` réutilisait le garde-fou "ce dossier m'appartient" (`chargerDossiersBeneficiaire`) commun à toutes les autres pages `/mon-espace` (strictement self-service) — mais cette page est aussi consultée par l'équipe pédagogique pour valider un document, jamais propriétaire du dossier. Corrigé par un contrôle à deux voies (propriétaire OU `peut_lire` scopé à l'organisation du bénéficiaire cible).
+
+**Faille de sécurité réelle trouvée et corrigée avant toute exploitation possible.** Les RPC `confirmer_transaction_credits`/`debiter_credit_revision` (SECURITY DEFINER, nécessaires car `credits_revision`/`credits_transactions` n'ont aucune policy d'écriture directe pour `authenticated`) avaient été accordées à `authenticated` sans aucune vérification d'autorisation interne — un oubli qui aurait permis à n'importe quel utilisateur connecté de créditer ou débiter le solde de n'importe quel bénéficiaire, les RPC Supabase étant appelables directement par tout client authentifié et pas seulement depuis le code serveur qui les invoque normalement. Corrigé : `confirmer_transaction_credits` n'est plus accordée qu'au contexte serveur (webhook, jamais `authenticated`) ; `debiter_credit_revision` vérifie explicitement que l'appelant est le bénéficiaire propriétaire ou un rôle habilité de son organisation avant tout débit.
+
+**T6 (crédits/paiement) et T7 (génération Claude Haiku) : code écrit mais non exécuté.** Aucune clé `ANTHROPIC_API_KEY` ni compte sandbox chez un prestataire de paiement (PayDunya/CinetPay/FedaPay/Kkiapay) disponible dans cet environnement au moment de la construction. L'endpoint de génération payante vérifie explicitement la présence de la clé et retourne un message d'erreur clair côté UI plutôt que d'échouer de façon confuse. Angenor doit fournir ces identifiants avant que ces deux étapes puissent être considérées closes.
+
+**Vérification** : `supabase/tests/test_quiz_revision_schema.sql` (cloisonnement bénéficiaire A/B, aucune écriture directe possible sur `credits_revision` même par le bénéficiaire propriétaire), `tests/e2e/quiz-revision-gratuit.spec.ts` (parcours complet dépôt→validation→génération→passation→score, vert après les 3 correctifs RLS/applicatif ci-dessus), `tsc --noEmit` propre.
+
 ## 2026-07-25 — Remédiation sécurité clôturée : clé JWT legacy révoquée côté Supabase, vérifié bout en bout
 
 Angenor a effectué manuellement les deux étapes signalées dans l'entrée précédente, directement depuis le Dashboard Supabase : désactivation des clés API legacy basées sur JWT (`anon`/`service_role`), puis révocation effective du secret JWT hérité (HS256) — la clé qui avait fuité dans l'historique de diagnostic est maintenant définitivement invalide, pas seulement contournée côté app.
