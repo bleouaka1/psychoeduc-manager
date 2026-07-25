@@ -78,10 +78,17 @@
   --status-ok-bg: rgba(111, 162, 135, 0.14);
   --status-warn: #c9a24b;
   --status-warn-bg: rgba(201, 162, 75, 0.14);
+  /* Registre de couleurs par activité (carrousel "Reprendre mon activité") — retour
+     utilisateur explicite : chaque activité (présente ou future) doit avoir sa PROPRE
+     couleur distincte, jamais une réutilisée ou une valeur par défaut oubliée. 6
+     couleurs réservées par thème (4 utilisées aujourd'hui + 2 prêtes pour de futurs
+     modules) — voir lib/activiteCouleurs.ts pour le registre côté code. */
   --accent-apprentissage: var(--accent-gold);
   --accent-tuteur: var(--sage);
-  --accent-revisions: var(--sage);
-  --accent-pro: var(--accent-gold-dim);
+  --accent-revisions: #5f9bd1;
+  --accent-pro: #b3574a;
+  --accent-module-5: #9b6bd6;
+  --accent-module-6: #4fd1a5;
 }
 
 /* ============================================================================
@@ -108,6 +115,8 @@
   --accent-tuteur: #9b6bd6;
   --accent-revisions: #3fae6a;
   --accent-pro: #d98a3d;
+  --accent-module-5: #e0507a;
+  --accent-module-6: #4dd0c4;
 }
 .mon-espace-theme[data-theme="sombre_dore"] .font-cinzel {
   font-family: var(--font-poppins), Arial, sans-serif;
@@ -127,7 +136,9 @@
   --accent-apprentissage: #7bb28c;
   --accent-tuteur: #a8785a;
   --accent-revisions: #c9a86a;
-  --accent-pro: #a8785a;
+  --accent-pro: #b5573f;
+  --accent-module-5: #6a8fd1;
+  --accent-module-6: #9b6bd6;
 }
 
 .mon-espace-theme[data-theme="contraste_eleve"] {
@@ -144,8 +155,10 @@
   --danger: #f87171;
   --accent-apprentissage: #4ade80;
   --accent-tuteur: #ffd54a;
-  --accent-revisions: #4ade80;
+  --accent-revisions: #38bdf8;
   --accent-pro: #f87171;
+  --accent-module-5: #f472b6;
+  --accent-module-6: #a78bfa;
 }
 
 .mon-espace-theme[data-theme="bleu_nuit"] {
@@ -162,7 +175,9 @@
   --accent-apprentissage: #5fa8e0;
   --accent-tuteur: #8fb4d9;
   --accent-revisions: #3d5a80;
-  --accent-pro: #5fa8e0;
+  --accent-pro: #e0a458;
+  --accent-module-5: #4fd1a5;
+  --accent-module-6: #8f7fd9;
 }
 
 .mon-espace-theme[data-theme="mode_clair"] {
@@ -178,8 +193,10 @@
   --sage-soft: rgba(90, 143, 111, 0.14);
   --accent-apprentissage: #5a8f6f;
   --accent-tuteur: #b8863f;
-  --accent-revisions: #5a8f6f;
-  --accent-pro: #b8863f;
+  --accent-revisions: #4a7fb5;
+  --accent-pro: #b5574a;
+  --accent-module-5: #8a6bb8;
+  --accent-module-6: #3f9e8f;
 }
 
 .mon-espace-theme[data-theme="terracotta"] {
@@ -196,7 +213,9 @@
   --accent-apprentissage: #e8a672;
   --accent-tuteur: #d97a4f;
   --accent-revisions: #8c4a2f;
-  --accent-pro: #d97a4f;
+  --accent-pro: #5f8fb3;
+  --accent-module-5: #9b6bd6;
+  --accent-module-6: #7bb28c;
 }
 
 .mon-espace-theme[data-theme="amethyste"] {
@@ -213,7 +232,9 @@
   --accent-apprentissage: #c9a8e8;
   --accent-tuteur: #a878d9;
   --accent-revisions: #5f3d80;
-  --accent-pro: #a878d9;
+  --accent-pro: #d97a9e;
+  --accent-module-5: #4fbfae;
+  --accent-module-6: #5f9bd1;
 }
 
 .mon-espace-theme[data-theme="monochrome"] {
@@ -227,10 +248,12 @@
   --text-muted: rgba(240, 240, 240, 0.5);
   --sage: #c9c9c9;
   --sage-soft: rgba(255, 255, 255, 0.08);
-  --accent-apprentissage: #dcdcdc;
-  --accent-tuteur: #9a9a9a;
-  --accent-revisions: #dcdcdc;
-  --accent-pro: #9a9a9a;
+  --accent-apprentissage: #f2f2f2;
+  --accent-tuteur: #dcdcdc;
+  --accent-revisions: #c0c0c0;
+  --accent-pro: #a4a4a4;
+  --accent-module-5: #888888;
+  --accent-module-6: #6c6c6c;
 }
 
 .mon-espace-theme[data-theme="sable_desert"] {
@@ -247,7 +270,9 @@
   --accent-apprentissage: #e0c99a;
   --accent-tuteur: #c9a55f;
   --accent-revisions: #8a6d3f;
-  --accent-pro: #c9a55f;
+  --accent-pro: #c97a6a;
+  --accent-module-5: #8caa7b;
+  --accent-module-6: #6a8fa8;
 }
 
 .font-cinzel {

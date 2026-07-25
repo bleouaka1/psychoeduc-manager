@@ -33,22 +33,22 @@ import { createClient } from '@/lib/supabase/client'
  * aucune ne disparaît de la navigation.
  */
 const NAV_ITEMS = [
-  { label: 'Tableau de bord', suffix: '', icon: Home },
-  { label: 'Mon IGA', suffix: '#boussole', icon: Compass },
-  { label: 'Mes compétences', suffix: '#profil-professionnel', icon: Award },
-  { label: "Espace d'apprentissage", suffix: 'marketplace', icon: GraduationCap },
-  { label: 'Espace Tuteurs', suffix: 'tuteurs', icon: MessageCircle },
-  { label: 'Révisions & Quiz', suffix: 'revisions', icon: BookOpen },
-  { label: 'Session professionnelle', suffix: 'insertion', icon: Briefcase },
-  { label: 'Intelligence économique', suffix: 'intelligence-economique', icon: LineChart },
-  { label: 'Marketplace', suffix: 'marketplace', icon: Store },
-  { label: 'Mes objectifs', suffix: 'projets-vie', icon: Target },
-  { label: 'Documents', suffix: 'revisions', icon: FileStack },
-  { label: 'Cercles d’apprentissage', suffix: 'cercles', icon: Users },
-  { label: 'Mon capital social', suffix: 'capital-social', icon: Users2 },
-  { label: 'Mon CV', suffix: 'cv', icon: FileText },
-  { label: 'Mon abonnement', suffix: 'abonnement', icon: CreditCard },
-  { label: 'Paramètres & Accessibilité', suffix: 'parametres', icon: Settings },
+  { label: 'Tableau de bord', sousLabel: null, suffix: '', icon: Home },
+  { label: 'Mon IGA', sousLabel: 'Boussole d’autonomie', suffix: '#boussole', icon: Compass },
+  { label: 'Mes compétences', sousLabel: 'ICC', suffix: '#profil-professionnel', icon: Award },
+  { label: "Espace d'apprentissage", sousLabel: null, suffix: 'marketplace', icon: GraduationCap },
+  { label: 'Espace Tuteurs', sousLabel: 'IA Pédagogique', suffix: 'tuteurs', icon: MessageCircle },
+  { label: 'Révisions & Quiz', sousLabel: null, suffix: 'revisions', icon: BookOpen },
+  { label: 'Session professionnelle', sousLabel: null, suffix: 'insertion', icon: Briefcase },
+  { label: 'Intelligence économique', sousLabel: null, suffix: 'intelligence-economique', icon: LineChart },
+  { label: 'Marketplace', sousLabel: null, suffix: 'marketplace', icon: Store },
+  { label: 'Mes objectifs', sousLabel: null, suffix: 'projets-vie', icon: Target },
+  { label: 'Documents', sousLabel: null, suffix: 'revisions', icon: FileStack },
+  { label: 'Cercles d’apprentissage', sousLabel: null, suffix: 'cercles', icon: Users },
+  { label: 'Mon capital social', sousLabel: null, suffix: 'capital-social', icon: Users2 },
+  { label: 'Mon CV', sousLabel: null, suffix: 'cv', icon: FileText },
+  { label: 'Mon abonnement', sousLabel: null, suffix: 'abonnement', icon: CreditCard },
+  { label: 'Paramètres & Accessibilité', sousLabel: null, suffix: 'parametres', icon: Settings },
 ] as const
 
 type Profil = { nom: string; prenoms: string; solde: number }
@@ -114,7 +114,14 @@ export function SidebarNav({ variant = 'desktop' }: { variant?: 'desktop' | 'dra
               }`}
             >
               <Icon size={15} className="shrink-0" />
-              {item.label}
+              <span className="min-w-0">
+                <span className="block truncate">{item.label}</span>
+                {item.sousLabel && (
+                  <span className={`block text-[10px] truncate ${actif ? 'text-accent-gold/70' : 'text-text-muted/70'}`}>
+                    {item.sousLabel}
+                  </span>
+                )}
+              </span>
             </Link>
           )
         })}

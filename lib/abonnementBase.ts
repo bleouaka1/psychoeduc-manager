@@ -13,7 +13,17 @@ export type AbonnementBaseActuel = {
   periodeFin: string | null
 }
 
+/** Interrupteur temporaire de test — quand `SUSPENDRE_GATE_ABONNEMENT=true` dans
+ * l'environnement, contourne la vérification d'abonnement partout (quiz, flashcards)
+ * pour permettre de manipuler le logiciel sans payer pendant une phase de test.
+ * À retirer de `.env.local` (ou repasser à `false`) avant toute mise en situation réelle. */
+const GATE_SUSPENDU = process.env.SUSPENDRE_GATE_ABONNEMENT === 'true'
+
 export async function chargerAbonnementBaseActif(supabase: SupabaseClient, beneficiaireId: string): Promise<AbonnementBaseActuel> {
+  if (GATE_SUSPENDU) {
+    return { statut: 'actif', typeFormule: 'tout_inclus', periodeFin: null }
+  }
+
   const { data } = await supabase
     .from('abonnements_base')
     .select('type_formule, statut, periode_fin')

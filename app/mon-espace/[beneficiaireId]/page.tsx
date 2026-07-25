@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Store, Users2, Rocket, LineChart, BookOpen, FileText, MessageCircle, Target, Coins } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { chargerBoussoleAutonomie, chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
@@ -15,6 +14,13 @@ import { RadarAutonomie } from '../_components/RadarAutonomie'
 import { AnneauProgression } from '../_components/AnneauProgression'
 import { StatCard } from '../_components/StatCard'
 import { MonParcours } from '../_components/MonParcours'
+import { ActivitesCarousel } from '../_components/ActivitesCarousel'
+import { ModeAudioToggle } from '../_components/ModeAudioToggle'
+import { chargerPreferences } from '@/lib/preferencesUtilisateur'
+import { mettreAJourPreferences } from './parametres/actions'
+import { chargerPrixCourant } from '@/lib/pricing'
+import { BadgeTarif } from '../_components/BadgeTarif'
+import { couleurActivite } from '@/lib/activiteCouleurs'
 
 /** Organisation en 4 catégories (dashboard bénéficiaire v2, Lot A) : regroupement
  * additif des cartes déjà existantes, aucune supprimée ni déplacée hors d'atteinte —
@@ -22,13 +28,13 @@ import { MonParcours } from '../_components/MonParcours'
  * l'intitulé affiché pour /insertion (module Insertion professionnelle existant,
  * pas un doublon — cf. PLAN_DASHBOARD_BENEFICIAIRE_V2.md, écart 1). */
 const TUILES_MON_AVENIR = [
-  { label: 'Session professionnelle', icon: Rocket, route: 'insertion' },
-  { label: 'Intelligence économique', icon: LineChart, route: 'intelligence-economique' },
+  { label: 'Session professionnelle', emoji: '💼', route: 'insertion' },
+  { label: 'Intelligence économique', emoji: '📈', route: 'intelligence-economique' },
 ] as const
 
 const TUILES_MES_SERVICES = [
-  { label: 'Marketplace', icon: Store, route: 'marketplace' },
-  { label: 'Cercles d’apprentissage', icon: Users2, route: 'cercles' },
+  { label: 'Marketplace', emoji: '🛍️', route: 'marketplace' },
+  { label: 'Cercles d’apprentissage', emoji: '👥', route: 'cercles' },
 ] as const
 
 export default async function MonEspaceDossierPage({ params }: { params: Promise<{ beneficiaireId: string }> }) {
@@ -57,6 +63,8 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
   if (!dossier) notFound()
 
   const activiteApprentissage = user ? await chargerActiviteApprentissage(supabase, user.id) : null
+  const preferences = user ? await chargerPreferences(supabase, user.id) : { modeInteraction: 'mixte' as const }
+  const prixCv = await chargerPrixCourant(supabase, 'generation_cv')
 
   const iccAgrege = agregerScoresIcc(formationsIcc.map((f) => f.score))
   const profilProfessionnelDisponible =
@@ -71,7 +79,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
     activiteApprentissage && {
       cle: 'apprentissage',
       tag: 'Apprentissage',
-      couleur: 'var(--accent-apprentissage)',
+      couleur: couleurActivite('apprentissage'),
       titre: activiteApprentissage.formationTitre,
       sous: activiteApprentissage.chapitreTitre ?? undefined,
       pourcentage: activiteApprentissage.pourcentage,
@@ -81,7 +89,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
     activiteTuteur && {
       cle: 'tuteur',
       tag: 'Tuteur IA',
-      couleur: 'var(--accent-tuteur)',
+      couleur: couleurActivite('tuteur'),
       titre: 'Discussion en cours',
       sous: `${activiteTuteur.personaNom} — ${activiteTuteur.domaine}`,
       bouton: 'Poser une question',
@@ -90,7 +98,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
     activiteRevisions && {
       cle: 'revisions',
       tag: 'Révisions',
-      couleur: 'var(--accent-revisions)',
+      couleur: couleurActivite('revisions'),
       titre: activiteRevisions.documentNom,
       sous: activiteRevisions.meilleurScore != null ? `Dernier score : ${activiteRevisions.meilleurScore}%` : 'Aucune tentative pour l’instant',
       bouton: 'Continuer',
@@ -99,7 +107,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
     activiteSessionPro && {
       cle: 'session_pro',
       tag: 'Session pro',
-      couleur: 'var(--accent-pro)',
+      couleur: couleurActivite('session_pro'),
       titre: 'Simulation entretien',
       sous: activiteSessionPro.personaNom,
       bouton: 'Reprendre',
@@ -109,8 +117,11 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
 
   return (
     <div>
-      <p className="font-data text-[11px] tracking-[0.15em] text-accent-gold uppercase mb-2.5">Mon espace</p>
-      <h1 className="font-cinzel font-semibold text-4xl text-text-primary">Bonjour {dossier.prenoms}</h1>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-2.5">
+        <p className="font-data text-[11px] tracking-[0.15em] text-accent-gold uppercase">Mon espace</p>
+        <ModeAudioToggle actifParDefaut={preferences.modeInteraction !== 'texte'} mettreAJour={mettreAJourPreferences.bind(null, beneficiaireId)} />
+      </div>
+      <h1 className="font-cinzel font-semibold text-4xl text-text-primary">Bonjour {dossier.prenoms} 👋</h1>
       <p className="text-text-muted text-sm mt-1.5 mb-9">{dossier.organisationNom}</p>
 
       {/* ============================== CARTES STATS ============================== */}
@@ -140,7 +151,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
           valeur={solde}
           detail="Solde de crédits"
           lien={{ href: `/mon-espace/${beneficiaireId}/abonnement`, texte: 'Voir mon historique →' }}
-          visuel={<Coins size={22} className="text-accent-gold" />}
+          visuel={<span className="text-[22px] leading-none">💰</span>}
           texteVocal={`Tu as ${solde} crédit${solde > 1 ? 's' : ''} disponible${solde > 1 ? 's' : ''}.`}
         />
         <StatCard
@@ -148,7 +159,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
           valeur={projetsActifs.length}
           detail="Projets actifs"
           lien={{ href: `/mon-espace/${beneficiaireId}/projets-vie`, texte: 'Continuer mes objectifs →' }}
-          visuel={<Target size={22} className="text-accent-gold" />}
+          visuel={<span className="text-[22px] leading-none">🎯</span>}
           texteVocal={`Tu as ${projetsActifs.length} objectif${projetsActifs.length > 1 ? 's' : ''} en cours.`}
         />
       </div>
@@ -157,33 +168,7 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       {activitesRecentes.length > 0 && (
         <>
           <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Reprendre mon activité</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-8">
-            {activitesRecentes.map((a) => (
-              <Link
-                key={a.cle}
-                href={a.href}
-                className="rounded-2xl p-4 border block hover:opacity-90 transition-opacity"
-                style={{ background: `color-mix(in srgb, ${a.couleur} 14%, var(--bg-card))`, borderColor: `color-mix(in srgb, ${a.couleur} 30%, transparent)` }}
-              >
-                <span
-                  className="font-data text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full inline-block mb-2.5"
-                  style={{ background: `color-mix(in srgb, ${a.couleur} 22%, transparent)`, color: a.couleur }}
-                >
-                  {a.tag}
-                </span>
-                <p className="text-text-primary text-[13.5px] font-semibold leading-tight mb-1">{a.titre}</p>
-                {a.sous && <p className="text-text-muted text-[11px] mb-2">{a.sous}</p>}
-                {a.pourcentage != null && (
-                  <div className="h-1 bg-bg-surface rounded-full overflow-hidden mb-2.5">
-                    <div className="h-full rounded-full" style={{ width: `${a.pourcentage}%`, background: a.couleur }} />
-                  </div>
-                )}
-                <span className="text-[11.5px] font-semibold" style={{ color: a.couleur }}>
-                  {a.bouton} →
-                </span>
-              </Link>
-            ))}
-          </div>
+          <ActivitesCarousel activites={activitesRecentes} />
         </>
       )}
 
@@ -319,7 +304,9 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-10 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-cinzel text-[16px] text-text-primary">Projet de vie</h2>
+          <h2 className="font-cinzel text-[16px] text-text-primary flex items-center gap-2">
+            <span className="text-[18px] leading-none">🎯</span> Projet de vie
+          </h2>
           {projetsActifs.length > 1 && <span className="text-text-muted text-[11.5px]">+ {projetsActifs.length - 1} autre(s) projet(s) actif(s)</span>}
         </div>
         {!projetPrincipal ? (
@@ -349,10 +336,13 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <BookOpen size={16} className="text-accent-gold" />
-          <div>
-            <h2 className="font-cinzel text-[16px] text-text-primary">Bibliothèque de révision</h2>
-            <p className="text-text-muted text-[12.5px] mt-1">Dépose un support de formation et génère un quiz pour réviser.</p>
+          <span className="text-[20px] leading-none shrink-0">📖</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="font-cinzel text-[16px] text-text-primary">Bibliothèque de révision</h2>
+              <BadgeTarif type="base" texte="Base" />
+            </div>
+            <p className="text-text-muted text-[12.5px] mt-1">Dépose un support de formation et génère un quiz pour réviser. Flashcards incluses ; aide mnémotechnique IA en crédits.</p>
           </div>
         </div>
       </Link>
@@ -362,9 +352,12 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-10 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <MessageCircle size={16} className="text-accent-gold" />
-          <div>
-            <h2 className="font-cinzel text-[16px] text-text-primary">Espace Tuteurs</h2>
+          <span className="text-[20px] leading-none shrink-0">🎓</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="font-cinzel text-[16px] text-text-primary">Espace Tuteurs</h2>
+              <BadgeTarif type="credits" texte="Crédits" />
+            </div>
             <p className="text-text-muted text-[12.5px] mt-1">Dialogue avec un tuteur IA pour apprendre, ou entraîne-toi avec une simulation d’entretien.</p>
           </div>
         </div>
@@ -374,21 +367,18 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Mon avenir</p>
 
       <div className="grid grid-cols-2 gap-3.5 mb-6">
-        {TUILES_MON_AVENIR.map((tuile) => {
-          const Icon = tuile.icon
-          return (
-            <Link
-              key={tuile.label}
-              href={`/mon-espace/${beneficiaireId}/${tuile.route}`}
-              className="bg-bg-card border border-border-soft rounded-[8px] p-5 text-center hover:border-accent-gold-dim transition-colors"
-            >
-              <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-accent-gold/10 flex items-center justify-center text-accent-gold">
-                <Icon size={16} />
-              </div>
-              <p className="font-cinzel text-[12.5px] text-text-primary leading-tight">{tuile.label}</p>
-            </Link>
-          )
-        })}
+        {TUILES_MON_AVENIR.map((tuile) => (
+          <Link
+            key={tuile.label}
+            href={`/mon-espace/${beneficiaireId}/${tuile.route}`}
+            className="bg-bg-card border border-border-soft rounded-[8px] p-5 text-center hover:border-accent-gold-dim transition-colors"
+          >
+            <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-accent-gold/10 flex items-center justify-center">
+              <span className="text-[18px] leading-none">{tuile.emoji}</span>
+            </div>
+            <p className="font-cinzel text-[12.5px] text-text-primary leading-tight">{tuile.label}</p>
+          </Link>
+        ))}
       </div>
 
       <Link
@@ -396,9 +386,12 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-10 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <FileText size={16} className="text-accent-gold" />
-          <div>
-            <h2 className="font-cinzel text-[16px] text-text-primary">Mon CV</h2>
+          <span className="text-[20px] leading-none shrink-0">📄</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="font-cinzel text-[16px] text-text-primary">Mon CV</h2>
+              {prixCv && <BadgeTarif type="fixe" texte={`${prixCv.montant} ${prixCv.devise}`} />}
+            </div>
             <p className="text-text-muted text-[12.5px] mt-1">Génère un CV à partir de ton profil de compétences et de ta progression.</p>
           </div>
         </div>
@@ -408,21 +401,18 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Mes services</p>
 
       <div className="grid grid-cols-2 gap-3.5 mb-6">
-        {TUILES_MES_SERVICES.map((tuile) => {
-          const Icon = tuile.icon
-          return (
-            <Link
-              key={tuile.label}
-              href={`/mon-espace/${beneficiaireId}/${tuile.route}`}
-              className="bg-bg-card border border-border-soft rounded-[8px] p-5 text-center hover:border-accent-gold-dim transition-colors"
-            >
-              <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-accent-gold/10 flex items-center justify-center text-accent-gold">
-                <Icon size={16} />
-              </div>
-              <p className="font-cinzel text-[12.5px] text-text-primary leading-tight">{tuile.label}</p>
-            </Link>
-          )
-        })}
+        {TUILES_MES_SERVICES.map((tuile) => (
+          <Link
+            key={tuile.label}
+            href={`/mon-espace/${beneficiaireId}/${tuile.route}`}
+            className="bg-bg-card border border-border-soft rounded-[8px] p-5 text-center hover:border-accent-gold-dim transition-colors"
+          >
+            <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-accent-gold/10 flex items-center justify-center">
+              <span className="text-[18px] leading-none">{tuile.emoji}</span>
+            </div>
+            <p className="font-cinzel text-[12.5px] text-text-primary leading-tight">{tuile.label}</p>
+          </Link>
+        ))}
       </div>
 
       {cercles.length > 0 && (
@@ -432,7 +422,9 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-cinzel text-[16px] text-text-primary mb-1">Cercles d’apprentissage</h2>
+              <h2 className="font-cinzel text-[16px] text-text-primary mb-1 flex items-center gap-2">
+                <span className="text-[18px] leading-none">👥</span> Cercles d’apprentissage
+              </h2>
               <p className="text-text-muted text-[12.5px]">{cercles.length} cercle(s) actif(s) auxquels tu peux participer.</p>
             </div>
             <span className="font-data text-[11px] bg-accent-gold/10 text-accent-gold border border-accent-gold-dim/40 rounded-full px-3 py-1 whitespace-nowrap">
@@ -449,7 +441,9 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="font-cinzel text-[16px] text-text-primary">Mon capital social</h2>
+            <h2 className="font-cinzel text-[16px] text-text-primary flex items-center gap-2">
+              <span className="text-[18px] leading-none">🤝</span> Mon capital social
+            </h2>
             <p className="text-text-muted text-[12.5px] mt-1">Les personnes et structures qui peuvent t’aider à avancer.</p>
           </div>
           <span className="font-data text-[11px] bg-sage-soft text-sage border border-sage/35 rounded-full px-3 py-1 whitespace-nowrap">Voir mon réseau →</span>
@@ -461,7 +455,9 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="font-cinzel text-[16px] text-text-primary">Mon abonnement</h2>
+          <h2 className="font-cinzel text-[16px] text-text-primary flex items-center gap-2">
+            <span className="text-[18px] leading-none">💳</span> Mon abonnement
+          </h2>
           <span className="text-accent-gold text-[12.5px]">Voir le statut →</span>
         </div>
       </Link>
@@ -471,7 +467,9 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="font-cinzel text-[16px] text-text-primary">Paramètres · Apparence</h2>
+          <h2 className="font-cinzel text-[16px] text-text-primary flex items-center gap-2">
+            <span className="text-[18px] leading-none">🎨</span> Paramètres · Apparence
+          </h2>
           <span className="text-accent-gold text-[12.5px]">Choisir ma palette →</span>
         </div>
       </Link>
