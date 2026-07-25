@@ -2,6 +2,14 @@
 
 Fichier append-only : on ajoute, on ne réécrit jamais une entrée passée. Chaque entrée doit rester compréhensible par quelqu'un qui n'a pas suivi le projet en temps réel.
 
+## 2026-07-25 — Remédiation sécurité clôturée : clé JWT legacy révoquée côté Supabase, vérifié bout en bout
+
+Angenor a effectué manuellement les deux étapes signalées dans l'entrée précédente, directement depuis le Dashboard Supabase : désactivation des clés API legacy basées sur JWT (`anon`/`service_role`), puis révocation effective du secret JWT hérité (HS256) — la clé qui avait fuité dans l'historique de diagnostic est maintenant définitivement invalide, pas seulement contournée côté app.
+
+**Faux négatif rencontré juste après la révocation, diagnostiqué avant d'être écarté** : le premier cycle d'impersonation testé immédiatement après le clic "Révoquer" a échoué (`erreur=lien_impersonation_echoue`) alors qu'un script Node isolé reproduisant exactement le même appel (`generateLink` + `verifyOtp`) réussissait sans erreur au même moment. Logging temporaire ajouté dans `demarrerImpersonation` (retiré ensuite, jamais committé) : aucune erreur capturée sur les runs suivants, tous verts. Conclusion : latence de propagation ponctuelle côté Supabase juste après la révocation d'un secret JWT (le service refuse encore de très courts instants les jetons signés avec l'ancienne configuration pendant la bascule), pas un bug applicatif — confirmé stable sur 2 runs consécutifs après quelques minutes.
+
+**Vérification finale** : suite complète rejouée après la révocation (`auth`/`dashboard`/`navigation`/`apercu-fondateur`/`impersonation-fondateur`/`mon-espace-beneficiaire`/`espace-parent`, 13 tests), tous verts — confirme que la bascule complète vers les clés modernes (`sb_publishable_`/`sb_secret_`) fonctionne dans tous les contextes de l'application, y compris la génération de lien magique côté service_role pour l'impersonation. `tsc --noEmit` propre. Incident de sécurité clos.
+
 ## 2026-07-25 — Remédiation sécurité : sortie du projet de la clé service_role legacy exposée
 
 Suite à l'entrée précédente (clé service_role apparue en clair dans une sortie d'outil de diagnostic) — Angenor a demandé une révocation/régénération. Vérifié via `npx supabase projects api-keys` : ce projet a déjà migré vers le nouveau système de clés Supabase (`sb_publishable_...` pour anon, déjà en place) et possède une clé `sb_secret_...` de type "secret" (rôle `service_role` via `secret_jwt_template`) déjà provisionnée en parallèle des clés JWT historiques (`anon`/`service_role` legacy).
