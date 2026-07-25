@@ -147,13 +147,18 @@ export default async function RevisionsPage({ params }: { params: Promise<{ bene
                 )}
 
                 {d.valideAt && (
-                  <GenererQuizForm
-                    documentId={d.id}
-                    beneficiaireId={beneficiaireId}
-                    soldeCredits={solde}
-                    genererGratuit={genererQuizGratuit.bind(null, beneficiaireId)}
-                    genererPayant={genererQuizPayant.bind(null, beneficiaireId)}
-                  />
+                  <>
+                    <GenererQuizForm
+                      documentId={d.id}
+                      beneficiaireId={beneficiaireId}
+                      soldeCredits={solde}
+                      genererGratuit={genererQuizGratuit.bind(null, beneficiaireId)}
+                      genererPayant={genererQuizPayant.bind(null, beneficiaireId)}
+                    />
+                    <Link href={`/mon-espace/${beneficiaireId}/revisions/flashcards/${d.id}`} className="text-accent-gold text-[12px] mt-2 inline-block hover:underline">
+                      Voir mes flashcards →
+                    </Link>
+                  </>
                 )}
               </li>
             ))}

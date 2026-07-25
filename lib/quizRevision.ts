@@ -45,7 +45,7 @@ const MOTS_VIDES = new Set([
   'on', 'nous', 'vous', 'ils', 'elles', 'être', 'avoir', 'en', 'à', 'd', 'l', 'c', 'qu', 's', 'n',
 ])
 
-function decouperEnPhrases(texte: string): string[] {
+export function decouperEnPhrases(texte: string): string[] {
   return texte
     .split(/(?<=[.!?])\s+/)
     .map((p) => p.trim())
@@ -68,9 +68,9 @@ const MOTIFS_DEFINITION = [
   /^(.{2,40}?)\s*:\s*(.{10,200})$/,
 ]
 
-type Definition = { sujet: string; definition: string; phrase: string }
+export type Definition = { sujet: string; definition: string; phrase: string }
 
-function detecterDefinitions(phrases: string[]): Definition[] {
+export function detecterDefinitions(phrases: string[]): Definition[] {
   const definitions: Definition[] = []
   for (const phrase of phrases) {
     for (const motif of MOTIFS_DEFINITION) {

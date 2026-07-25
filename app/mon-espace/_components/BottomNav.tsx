@@ -30,7 +30,7 @@ export function BottomNav() {
   const sousChemin = segments.slice(2).join('/')
 
   return (
-    <nav className="print:hidden fixed bottom-0 left-0 right-0 z-10 bg-bg-surface/95 backdrop-blur border-t border-border-soft">
+    <nav className="lg:hidden print:hidden fixed bottom-0 left-0 right-0 z-10 bg-bg-surface/95 backdrop-blur border-t border-border-soft">
       <div className="max-w-3xl mx-auto grid grid-cols-4">
         {ITEMS.map((item) => {
           const Icon = item.icon

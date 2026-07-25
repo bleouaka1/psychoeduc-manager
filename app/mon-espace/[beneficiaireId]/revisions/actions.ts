@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { genererQuizGratuit as genererContenuGratuit, RECOMMANDATION_OBJECTIF, type PreferenceObjectif } from '@/lib/quizRevision'
+import { chargerAbonnementBaseActif } from '@/lib/abonnementBase'
 
 async function chargerBeneficiaire(supabase: Awaited<ReturnType<typeof createClient>>, beneficiaireId: string) {
   const { data } = await supabase.from('beneficiaires').select('id, organisation_id').eq('id', beneficiaireId).single()
@@ -82,6 +83,18 @@ export async function genererQuizGratuit(
   const supabase = await createClient()
   const beneficiaire = await chargerBeneficiaire(supabase, beneficiaireId)
   if (!beneficiaire) return { error: 'Bénéficiaire introuvable.' }
+
+  // Abonnement de base requis (200 FCFA/mois, dashboard bénéficiaire v3, Lot H) —
+  // renversement de politique confirmé par Angenor avant cette migration. Le message
+  // pointe toujours vers une prise en charge par un tiers (structure/parent), jamais
+  // un blocage sec (§11 du handoff-quiz-revision-ia-5.md).
+  const abonnement = await chargerAbonnementBaseActif(supabase, beneficiaireId)
+  if (abonnement.statut !== 'actif') {
+    return {
+      error:
+        'Un abonnement de base (200 FCFA/mois) est nécessaire pour générer des quiz. Demande à ta structure ou à un parent de le prendre en charge si tu ne peux pas payer toi-même.',
+    }
+  }
 
   const { data: document } = await supabase
     .from('documents_beneficiaires')

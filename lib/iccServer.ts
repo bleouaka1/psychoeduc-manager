@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { calculerIcc, type ScoreIcc, type EvaluationSavoir, type EvaluationSavoirFaire, type NiveauSavoirFaire } from './icc'
+import { calculerIcc, type ScoreIcc, type EvaluationSavoir, type EvaluationSavoirFaire, type NiveauSavoirFaire, TAGS_SAVOIR_ETRE, PHRASE_SAVOIR_ETRE } from './icc'
 
 /** Agrège les données réelles nécessaires aux 3 piliers ICC, groupées par formation
  * (§4.1 : "propre à la formation en cours") — délègue tout le calcul à `calculerIcc`
@@ -94,4 +94,54 @@ export async function chargerFormationsAvecIcc(supabase: SupabaseClient, benefic
     competencesSavoirFaire: f.savoirFaires.map((sf) => ({ libelle: f.libellesSavoirFaire.get(sf.competenceId) ?? '', niveau: sf.niveau })).filter((c) => c.libelle),
     tagsSavoirEtre: Array.from(new Set(f.tags)),
   }))
+}
+
+export type CompetenceLigne = { libelle: string; description: string | null; statut: 'valide' | 'en_cours' }
+
+/**
+ * Liste plate des compétences par dimension, toutes formations confondues — pour la
+ * vue "Mon parcours" à onglets (dashboard bénéficiaire v3, Lot G). `description` est
+ * un texte libre optionnel saisi par le formateur (colonne additive) ; absent → repli
+ * sur le libellé seul côté UI, jamais une phrase inventée.
+ */
+export async function chargerCompetencesParDimension(
+  supabase: SupabaseClient,
+  beneficiaireId: string,
+): Promise<{ savoirs: CompetenceLigne[]; savoirFaire: CompetenceLigne[]; savoirEtre: CompetenceLigne[] }> {
+  const [{ data: savoirs }, { data: savoirFaires }, { data: observations }] = await Promise.all([
+    supabase.from('icc_evaluations_savoir').select('moment, maitrise, icc_competences(id, libelle, description)').eq('beneficiaire_id', beneficiaireId),
+    supabase.from('icc_evaluations_savoir_faire').select('niveau, icc_competences(id, libelle, description)').eq('beneficiaire_id', beneficiaireId),
+    supabase.from('icc_observations_savoir_etre').select('tag').eq('beneficiaire_id', beneficiaireId),
+  ])
+
+  const savoirParCompetence = new Map<string, { libelle: string; description: string | null; apres: boolean | null }>()
+  for (const s of (savoirs ?? []) as any[]) {
+    const competence = s.icc_competences
+    if (!competence) continue
+    const existant = savoirParCompetence.get(competence.id) ?? { libelle: competence.libelle, description: competence.description, apres: null }
+    if (s.moment === 'apres') existant.apres = s.maitrise
+    savoirParCompetence.set(competence.id, existant)
+  }
+  const lignesSavoirs: CompetenceLigne[] = Array.from(savoirParCompetence.values()).map((s) => ({
+    libelle: s.libelle,
+    description: s.description,
+    statut: s.apres === true ? 'valide' : 'en_cours',
+  }))
+
+  const lignesSavoirFaire: CompetenceLigne[] = ((savoirFaires ?? []) as any[])
+    .filter((sf) => sf.icc_competences)
+    .map((sf) => ({
+      libelle: sf.icc_competences.libelle,
+      description: sf.icc_competences.description,
+      statut: sf.niveau === 'autonome' || sf.niveau === 'expert' ? 'valide' : 'en_cours',
+    }))
+
+  const tagsObserves = new Set(((observations ?? []) as any[]).map((o) => o.tag))
+  const lignesSavoirEtre: CompetenceLigne[] = TAGS_SAVOIR_ETRE.map((tag) => ({
+    libelle: tag,
+    description: PHRASE_SAVOIR_ETRE[tag],
+    statut: tagsObserves.has(tag) ? 'valide' : 'en_cours',
+  }))
+
+  return { savoirs: lignesSavoirs, savoirFaire: lignesSavoirFaire, savoirEtre: lignesSavoirEtre }
 }

@@ -3,10 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
 import { chargerPrixCourant } from '@/lib/pricing'
 import { chargerHistoriqueCv } from '@/lib/cvServer'
-import { parserContenuCv } from '@/lib/cv'
+import { parserContenuCv, formulaireCvVide } from '@/lib/cv'
 import { CvApercu } from '@/app/_components/cv/CvApercu'
-import { demarrerGenerationCv, finaliserGenerationCv } from './actions'
-import { GenererCvForm } from './_components/GenererCvForm'
+import { demarrerGenerationCv, finaliserGenerationCv, preremplirDepuisProfilAction } from './actions'
+import { CvFormulaireWrapper } from './_components/CvFormulaireWrapper'
 import { FinaliserCvButton } from './_components/FinaliserCvButton'
 
 const LABEL_STATUT: Record<string, string> = {
@@ -20,7 +20,8 @@ export default async function CvPage({ params }: { params: Promise<{ beneficiair
 
   const dossiers = await chargerDossiersBeneficiaire(supabase)
   const dossier = dossiers.find((d) => d.id === beneficiaireId)
-  if (!dossier) notFound()
+  const estBeneficiaire = Boolean(dossier)
+  if (!estBeneficiaire) notFound()
 
   const {
     data: { user },
@@ -31,15 +32,20 @@ export default async function CvPage({ params }: { params: Promise<{ beneficiair
   return (
     <div>
       <p className="font-data text-[11px] tracking-[0.15em] text-accent-gold uppercase mb-2.5">Mon espace</p>
-      <h1 className="font-cinzel font-semibold text-3xl text-text-primary mb-1">Mon CV</h1>
+      <h1 className="font-cinzel font-semibold text-3xl text-text-primary mb-1">Générer mon CV</h1>
       <p className="text-text-muted text-sm mb-7">
-        Un CV généré à partir de ton profil de compétences (ICC) et de ta progression (IGA)
-        {prix ? ` — ${prix.montant} ${prix.devise} par génération.` : '.'}
+        Un générateur de CV standard, comme sur n’importe quelle plateforme — remplis ce que tu veux, l’IA met en forme.
+        {prix ? ` ${prix.montant} ${prix.devise} par génération.` : ''}
       </p>
 
       {prix && (
         <div className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
-          <GenererCvForm beneficiaireId={beneficiaireId} montant={prix.montant} devise={prix.devise} demarrer={demarrerGenerationCv} />
+          <CvFormulaireWrapper
+            formulaireInitial={formulaireCvVide(dossier?.prenoms ?? '', dossier?.nom ?? '')}
+            peutPreremplir={estBeneficiaire}
+            preremplir={preremplirDepuisProfilAction.bind(null, beneficiaireId)}
+            soumettre={demarrerGenerationCv.bind(null, beneficiaireId)}
+          />
         </div>
       )}
 

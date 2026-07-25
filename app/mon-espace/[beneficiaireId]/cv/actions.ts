@@ -3,37 +3,37 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { chargerPrixCourant } from '@/lib/pricing'
-import { chargerDonneesCvBeneficiaire } from '@/lib/cvServer'
-import { construirePromptCv, parserContenuCv } from '@/lib/cv'
+import { construirePromptCv, parserContenuCv, type FormulaireCv } from '@/lib/cv'
+import { preremplirFormulaireCv } from '@/lib/cvServer'
 import { estMineur } from '@/lib/cerclesApprentissage'
 
 async function chargerBeneficiaire(supabase: Awaited<ReturnType<typeof createClient>>, beneficiaireId: string) {
-  const { data } = await supabase
-    .from('beneficiaires')
-    .select('id, nom, prenoms, date_naissance, organisation_id, organisations(nom)')
-    .eq('id', beneficiaireId)
-    .single()
+  const { data } = await supabase.from('beneficiaires').select('id, nom, prenoms, date_naissance, organisation_id').eq('id', beneficiaireId).single()
   return data
 }
 
 /**
- * Crée la demande de génération (statut 'en_attente', jamais confirmée ici) — §2.4
- * point 1 : ne jamais générer avant confirmation RÉELLE du paiement par le prestataire.
- * Bloquée tant qu'aucun prestataire n'est configuré (CV_PAIEMENT_PROVIDER), même
- * posture que le garde-fou ANTHROPIC_API_KEY sur le quiz payant : le code du flux
- * complet est écrit (voir finaliserGenerationCv ci-dessous) mais inatteignable tant
- * que ce choix n'est pas fait avec Angenor (PayDunya/CinetPay/FedaPay/Kkiapay, cf.
- * handoff-quiz-revision-ia-3.md §7). Une fois câblé, le webhook du prestataire doit
- * appeler confirmer_paiement_cv() (RPC service_role uniquement, jamais depuis un
- * client authentifié) puis cette page permet de finaliser la génération.
+ * Raccourci de saisie optionnel (§2.2, révision) — réservé aux bénéficiaires,
+ * jamais une dépendance du flux : peuple le formulaire depuis le profil ICC,
+ * l'utilisateur reste libre de tout modifier ou d'ignorer ce bouton.
  */
-export async function demarrerGenerationCv(
-  beneficiaireId: string,
-): Promise<{ error: string | null; generationId?: string; montant?: number; devise?: string }> {
+export async function preremplirDepuisProfilAction(beneficiaireId: string): Promise<{ error: string | null; formulaire?: FormulaireCv }> {
   const supabase = await createClient()
   const beneficiaire = await chargerBeneficiaire(supabase, beneficiaireId)
   if (!beneficiaire) return { error: 'Bénéficiaire introuvable.' }
 
+  const formulaire = await preremplirFormulaireCv(supabase, beneficiaireId, beneficiaire.prenoms, beneficiaire.nom)
+  return { error: null, formulaire }
+}
+
+/**
+ * Crée la demande de génération avec le formulaire soumis (statut 'en_attente',
+ * jamais confirmée ici) — §2.4 point 1 : ne jamais générer avant confirmation RÉELLE
+ * du paiement. Bloquée tant qu'aucun prestataire n'est configuré (CV_PAIEMENT_PROVIDER),
+ * même posture que le garde-fou ANTHROPIC_API_KEY sur le quiz payant.
+ */
+export async function demarrerGenerationCv(beneficiaireId: string, formulaire: FormulaireCv): Promise<{ error: string | null; generationId?: string; montant?: number; devise?: string }> {
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -48,7 +48,7 @@ export async function demarrerGenerationCv(
 
   const { data: generation, error } = await supabase
     .from('cv_generations')
-    .insert({ compte_id: user.id, type_compte: 'beneficiaire', montant_paye: prix.montant, devise: prix.devise, statut: 'en_attente' })
+    .insert({ compte_id: user.id, type_compte: 'beneficiaire', montant_paye: prix.montant, devise: prix.devise, statut: 'en_attente', formulaire_json: formulaire })
     .select('id')
     .single()
   if (error || !generation) return { error: 'Impossible de créer la demande de génération.' }
@@ -60,9 +60,9 @@ export async function demarrerGenerationCv(
 }
 
 /**
- * Génère réellement le contenu du CV — n'agit que sur une génération déjà `confirme`
- * (le paiement a été validé par le webhook du prestataire, jamais par ce code). Bloquée
- * sans ANTHROPIC_API_KEY, même garde-fou que genererQuizPayant.
+ * Génère réellement le contenu du CV à partir du formulaire soumis — n'agit que sur
+ * une génération déjà `confirme` (le paiement a été validé par le webhook du
+ * prestataire, jamais par ce code). Bloquée sans ANTHROPIC_API_KEY.
  */
 export async function finaliserGenerationCv(beneficiaireId: string, generationId: string): Promise<{ error: string | null }> {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -70,21 +70,17 @@ export async function finaliserGenerationCv(beneficiaireId: string, generationId
   }
 
   const supabase = await createClient()
-  const { data: generation } = await supabase.from('cv_generations').select('id, statut, contenu_json').eq('id', generationId).single()
+  const { data: generation } = await supabase.from('cv_generations').select('id, statut, contenu_json, formulaire_json').eq('id', generationId).single()
   if (!generation) return { error: 'Génération introuvable.' }
   if (generation.statut !== 'confirme') return { error: 'Le paiement n’a pas encore été confirmé pour cette génération.' }
   if (generation.contenu_json) return { error: null }
+  if (!generation.formulaire_json) return { error: 'Formulaire introuvable pour cette génération.' }
 
   const beneficiaire = await chargerBeneficiaire(supabase, beneficiaireId)
   if (!beneficiaire) return { error: 'Bénéficiaire introuvable.' }
 
-  const donneesSource = await chargerDonneesCvBeneficiaire(supabase, beneficiaireId, {
-    prenoms: beneficiaire.prenoms,
-    nom: beneficiaire.nom,
-    organisationNom: (beneficiaire as any).organisations?.nom ?? null,
-  })
   const mineur = estMineur(beneficiaire.date_naissance)
-  const promptSysteme = construirePromptCv(donneesSource, mineur)
+  const promptSysteme = construirePromptCv(generation.formulaire_json as unknown as FormulaireCv, mineur)
 
   let contenuJson: unknown
   try {

@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { VoiceInput } from '@/app/mon-espace/_components/voix/VoiceInput'
+import { SpeakButton } from '@/app/mon-espace/_components/voix/SpeakButton'
 
 type Message = { id: string; role: 'user' | 'assistant'; contenu: string; createdAt: string }
 
@@ -61,11 +63,12 @@ export function ConversationTuteur({
           {messages.map((m) => (
             <li
               key={m.id}
-              className={`text-[13.5px] leading-relaxed rounded-xl px-4 py-2.5 max-w-[85%] ${
+              className={`flex items-start gap-2 text-[13.5px] leading-relaxed rounded-xl px-4 py-2.5 max-w-[85%] ${
                 m.role === 'user' ? 'bg-accent-gold/10 text-text-primary ml-auto' : 'bg-bg-surface text-text-primary'
               }`}
             >
-              {m.contenu}
+              <span className="flex-1">{m.contenu}</span>
+              {m.role === 'assistant' && <SpeakButton texte={m.contenu} taille={13} />}
             </li>
           ))}
         </ul>
@@ -86,6 +89,7 @@ export function ConversationTuteur({
             placeholder="Écris ton message…"
             className="flex-1 bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
           />
+          <VoiceInput onTranscript={(transcrit) => setTexte((t) => (t ? `${t} ${transcrit}` : transcrit))} />
           <button
             type="button"
             disabled={enCours || !texte.trim()}

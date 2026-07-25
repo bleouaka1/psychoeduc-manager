@@ -74,6 +74,180 @@
   --text-muted: #9aa2ae;
   --sage: #6fa287;
   --sage-soft: rgba(111, 162, 135, 0.14);
+  --status-ok: #6fa287;
+  --status-ok-bg: rgba(111, 162, 135, 0.14);
+  --status-warn: #c9a24b;
+  --status-warn-bg: rgba(201, 162, 75, 0.14);
+  --accent-apprentissage: var(--accent-gold);
+  --accent-tuteur: var(--sage);
+  --accent-revisions: var(--sage);
+  --accent-pro: var(--accent-gold-dim);
+}
+
+/* ============================================================================
+   10 thèmes personnalisables (dashboard bénéficiaire v3, Lot F) — scopés à
+   .mon-espace-theme uniquement (paramètre personnel du bénéficiaire, jamais un
+   thème de plateforme global qui affecterait /solo ou le Cockpit Fondateur).
+   "sobre_navy" = les valeurs historiques ci-dessus, sans bloc supplémentaire
+   (déjà le comportement par défaut de .mon-espace-theme). "sombre_dore" devient
+   le nouveau thème par défaut (preferences_utilisateur.theme_id).
+   ============================================================================ */
+
+.mon-espace-theme[data-theme="sombre_dore"] {
+  --bg-base: #0a0a0a;
+  --bg-surface: #131313;
+  --bg-card: #1a1a1a;
+  --border-soft: rgba(255, 255, 255, 0.07);
+  --accent-gold: #e2a545;
+  --accent-gold-dim: #b3803a;
+  --text-primary: #f2f2f2;
+  --text-muted: rgba(242, 242, 242, 0.55);
+  --sage: #3fae6a;
+  --sage-soft: rgba(63, 174, 106, 0.14);
+  --accent-apprentissage: #4f8ff0;
+  --accent-tuteur: #9b6bd6;
+  --accent-revisions: #3fae6a;
+  --accent-pro: #d98a3d;
+}
+.mon-espace-theme[data-theme="sombre_dore"] .font-cinzel {
+  font-family: var(--font-poppins), Arial, sans-serif;
+}
+
+.mon-espace-theme[data-theme="terre_douce"] {
+  --bg-base: #141a15;
+  --bg-surface: #1a221b;
+  --bg-card: #202a21;
+  --border-soft: rgba(123, 178, 140, 0.16);
+  --accent-gold: #7bb28c;
+  --accent-gold-dim: #5a8a6c;
+  --text-primary: #e8ddc7;
+  --text-muted: rgba(232, 221, 199, 0.55);
+  --sage: #c9a86a;
+  --sage-soft: rgba(201, 168, 106, 0.14);
+  --accent-apprentissage: #7bb28c;
+  --accent-tuteur: #a8785a;
+  --accent-revisions: #c9a86a;
+  --accent-pro: #a8785a;
+}
+
+.mon-espace-theme[data-theme="contraste_eleve"] {
+  --bg-base: #000000;
+  --bg-surface: #0d0d0d;
+  --bg-card: #111111;
+  --border-soft: #444444;
+  --accent-gold: #ffd54a;
+  --accent-gold-dim: #d4af37;
+  --text-primary: #ffffff;
+  --text-muted: #cccccc;
+  --sage: #4ade80;
+  --sage-soft: rgba(74, 222, 128, 0.18);
+  --danger: #f87171;
+  --accent-apprentissage: #4ade80;
+  --accent-tuteur: #ffd54a;
+  --accent-revisions: #4ade80;
+  --accent-pro: #f87171;
+}
+
+.mon-espace-theme[data-theme="bleu_nuit"] {
+  --bg-base: #0d1526;
+  --bg-surface: #10192c;
+  --bg-card: #152238;
+  --border-soft: rgba(95, 168, 224, 0.16);
+  --accent-gold: #5fa8e0;
+  --accent-gold-dim: #3d5a80;
+  --text-primary: #c9d6e3;
+  --text-muted: rgba(201, 214, 227, 0.55);
+  --sage: #8fb4d9;
+  --sage-soft: rgba(143, 180, 217, 0.14);
+  --accent-apprentissage: #5fa8e0;
+  --accent-tuteur: #8fb4d9;
+  --accent-revisions: #3d5a80;
+  --accent-pro: #5fa8e0;
+}
+
+.mon-espace-theme[data-theme="mode_clair"] {
+  --bg-base: #f4f1e8;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --border-soft: #e3dcc8;
+  --accent-gold: #b8863f;
+  --accent-gold-dim: #8a6d1f;
+  --text-primary: #1b2333;
+  --text-muted: #5a6472;
+  --sage: #5a8f6f;
+  --sage-soft: rgba(90, 143, 111, 0.14);
+  --accent-apprentissage: #5a8f6f;
+  --accent-tuteur: #b8863f;
+  --accent-revisions: #5a8f6f;
+  --accent-pro: #b8863f;
+}
+
+.mon-espace-theme[data-theme="terracotta"] {
+  --bg-base: #1c120e;
+  --bg-surface: #24160f;
+  --bg-card: #2b1a12;
+  --border-soft: rgba(217, 122, 79, 0.18);
+  --accent-gold: #d97a4f;
+  --accent-gold-dim: #8c4a2f;
+  --text-primary: #f0d9c4;
+  --text-muted: rgba(240, 217, 196, 0.55);
+  --sage: #e8a672;
+  --sage-soft: rgba(232, 166, 114, 0.14);
+  --accent-apprentissage: #e8a672;
+  --accent-tuteur: #d97a4f;
+  --accent-revisions: #8c4a2f;
+  --accent-pro: #d97a4f;
+}
+
+.mon-espace-theme[data-theme="amethyste"] {
+  --bg-base: #160f22;
+  --bg-surface: #1c1330;
+  --bg-card: #1f1530;
+  --border-soft: rgba(168, 120, 217, 0.18);
+  --accent-gold: #a878d9;
+  --accent-gold-dim: #5f3d80;
+  --text-primary: #e3d4f0;
+  --text-muted: rgba(227, 212, 240, 0.55);
+  --sage: #c9a8e8;
+  --sage-soft: rgba(201, 168, 232, 0.14);
+  --accent-apprentissage: #c9a8e8;
+  --accent-tuteur: #a878d9;
+  --accent-revisions: #5f3d80;
+  --accent-pro: #a878d9;
+}
+
+.mon-espace-theme[data-theme="monochrome"] {
+  --bg-base: #161616;
+  --bg-surface: #1c1c1c;
+  --bg-card: #202020;
+  --border-soft: rgba(255, 255, 255, 0.1);
+  --accent-gold: #dcdcdc;
+  --accent-gold-dim: #9a9a9a;
+  --text-primary: #f0f0f0;
+  --text-muted: rgba(240, 240, 240, 0.5);
+  --sage: #c9c9c9;
+  --sage-soft: rgba(255, 255, 255, 0.08);
+  --accent-apprentissage: #dcdcdc;
+  --accent-tuteur: #9a9a9a;
+  --accent-revisions: #dcdcdc;
+  --accent-pro: #9a9a9a;
+}
+
+.mon-espace-theme[data-theme="sable_desert"] {
+  --bg-base: #1c1810;
+  --bg-surface: #221d13;
+  --bg-card: #2b2317;
+  --border-soft: rgba(201, 165, 95, 0.18);
+  --accent-gold: #c9a55f;
+  --accent-gold-dim: #8a6d3f;
+  --text-primary: #f0e6d2;
+  --text-muted: rgba(240, 230, 210, 0.55);
+  --sage: #e0c99a;
+  --sage-soft: rgba(224, 201, 154, 0.14);
+  --accent-apprentissage: #e0c99a;
+  --accent-tuteur: #c9a55f;
+  --accent-revisions: #8a6d3f;
+  --accent-pro: #c9a55f;
 }
 
 .font-cinzel {

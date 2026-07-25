@@ -1,35 +1,37 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { DonneesSourceCv } from './cv'
-import { chargerFormationsAvecIcc } from './iccServer'
-import { agregerScoresIcc } from './icc'
-import { chargerBoussoleAutonomie } from './beneficiaireDashboard'
-import { chargerProjetsAvecProgression } from './projetVie'
+import type { FormulaireCv } from './cv'
+import { formulaireCvVide } from './cv'
+import { chargerCompetencesParDimension } from './iccServer'
 
-/** Agrège les données source pour la génération de CV d'un bénéficiaire (§2.2) —
- * réutilise les mêmes lectures que le dashboard bénéficiaire (Boussole, ICC, projets
- * de vie), jamais une nouvelle copie de cette logique. Les autres types de compte
- * (Solo, Structure, Employeur) auront leur propre fonction d'agrégation plus tard
- * (saisie manuelle probable, pas de profil ICC/IGA pour eux) — différé au §4. */
-export async function chargerDonneesCvBeneficiaire(
-  supabase: SupabaseClient,
-  beneficiaireId: string,
-  identite: { prenoms: string; nom: string; organisationNom: string | null },
-): Promise<DonneesSourceCv> {
-  const [boussole, formationsIcc, projets] = await Promise.all([
-    chargerBoussoleAutonomie(supabase, beneficiaireId),
-    chargerFormationsAvecIcc(supabase, beneficiaireId),
-    chargerProjetsAvecProgression(supabase, beneficiaireId),
-  ])
+/**
+ * Pré-remplit le formulaire de CV à partir du profil ICC d'un bénéficiaire — un
+ * RACCOURCI DE SAISIE optionnel (§2.2, révision), jamais une dépendance technique :
+ * le générateur de CV reste pleinement fonctionnel sans jamais appeler cette fonction
+ * (formulaireCvVide suffit pour tous les autres types de compte). Ne pré-remplit que
+ * les formations et les compétences validées — l'IGA (autonomie générale) et les
+ * projets de vie ne correspondent à aucun champ honnête du formulaire standard,
+ * jamais forcés dans un champ qui leur convient mal.
+ */
+export async function preremplirFormulaireCv(supabase: SupabaseClient, beneficiaireId: string, prenoms: string, nom: string): Promise<FormulaireCv> {
+  const competences = await chargerCompetencesParDimension(supabase, beneficiaireId)
 
+  const formationsTitres = new Set<string>()
+  const { data: formationsIcc } = await supabase
+    .from('icc_evaluations_savoir')
+    .select('icc_competences(formations(titre))')
+    .eq('beneficiaire_id', beneficiaireId)
+  for (const f of (formationsIcc ?? []) as any[]) {
+    const titre = f.icc_competences?.formations?.titre
+    if (titre) formationsTitres.add(titre)
+  }
+
+  const competencesValidees = [...competences.savoirs, ...competences.savoirFaire].filter((c) => c.statut === 'valide').map((c) => c.libelle)
+
+  const base = formulaireCvVide(prenoms, nom)
   return {
-    prenoms: identite.prenoms,
-    nom: identite.nom,
-    organisationNom: identite.organisationNom,
-    scoreIga: boussole.scoreGlobal,
-    niveauIga: boussole.niveau,
-    icc: agregerScoresIcc(formationsIcc.map((f) => f.score)),
-    formations: formationsIcc.map((f) => f.formationTitre).filter(Boolean),
-    projetsVie: projets.filter((p) => p.statut !== 'abandonne' && p.titre).map((p) => p.titre as string),
+    ...base,
+    formations: Array.from(formationsTitres).map((titre) => ({ titre, etablissement: '', periode: '' })),
+    competences: competencesValidees,
   }
 }
 

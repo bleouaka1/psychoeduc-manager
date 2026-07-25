@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, IBM_Plex_Mono, Cinzel } from "next/font/google";
+import { Fraunces, Inter, IBM_Plex_Mono, Cinzel, Poppins } from "next/font/google";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -28,6 +28,14 @@ const cinzel = Cinzel({
   weight: ["500", "600", "700"],
 });
 
+// Thème "Sombre doré" (dashboard bénéficiaire v3) uniquement — remplace Cinzel dans
+// .font-cinzel quand ce thème est actif (data-theme="sombre_dore"), cf. globals.css.
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+});
+
 export const metadata: Metadata = {
   title: "PsychoÉduc Manager",
   description: "Chaque parcours d'autonomie mérite d'être vu dans son entier — logiciel de suivi socio-éducatif.",
@@ -41,7 +49,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} ${cinzel.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} ${cinzel.variable} ${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bg-base">{children}</body>
     </html>

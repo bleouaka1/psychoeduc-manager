@@ -16,8 +16,12 @@ async function connecter(browser: Browser, email: string, password: string) {
   return { context, page }
 }
 
-// Parcours complet du palier GRATUIT uniquement (aucune dépendance à une clé API) :
+// Parcours complet du palier de BASE (aucune dépendance à une clé API) :
 // dépôt → validation par le Fondateur → génération sans IA → passation → score enregistré.
+// Depuis le Lot H (dashboard bénéficiaire v3), la génération exige un abonnement de
+// base actif (200 FCFA/mois) — le fixture e2e-beneficiaire a une ligne abonnements_base
+// active seedée manuellement en base (aucun prestataire de paiement configuré pour la
+// souscrire via l'UI), même principe que credits_revision pour le palier payant.
 test('un bénéficiaire dépose un support, le Fondateur le valide, génère et passe un quiz gratuit', async ({ browser }) => {
   test.setTimeout(300_000)
 

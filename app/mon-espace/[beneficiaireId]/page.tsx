@@ -1,16 +1,20 @@
 import Link from 'next/link'
-import { Store, Users2, Rocket, LineChart, BookOpen, FileText, MessageCircle } from 'lucide-react'
+import { Store, Users2, Rocket, LineChart, BookOpen, FileText, MessageCircle, Target, Coins } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { chargerBoussoleAutonomie, chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
 import { chargerProjetsAvecProgression, chargerFilActivite } from '@/lib/projetVie'
-import { chargerFormationsAvecIcc } from '@/lib/iccServer'
+import { chargerFormationsAvecIcc, chargerCompetencesParDimension } from '@/lib/iccServer'
 import { agregerScoresIcc } from '@/lib/icc'
-import { chargerScoreMoyenQuiz } from '@/lib/quizRevisionServer'
+import { chargerScoreMoyenQuiz, chargerSoldeCredits } from '@/lib/quizRevisionServer'
 import { chargerMesCercles } from '@/lib/cerclesApprentissageServer'
+import { chargerActiviteApprentissage, chargerActiviteTuteur, chargerActiviteSessionPro, chargerActiviteRevisions } from '@/lib/activiteRecente'
 import { NIVEAU_LABEL } from '@/lib/iga'
 import { PHRASE_SAVOIR_ETRE } from '@/lib/icc'
 import { RadarAutonomie } from '../_components/RadarAutonomie'
+import { AnneauProgression } from '../_components/AnneauProgression'
+import { StatCard } from '../_components/StatCard'
+import { MonParcours } from '../_components/MonParcours'
 
 /** Organisation en 4 catégories (dashboard bénéficiaire v2, Lot A) : regroupement
  * additif des cartes déjà existantes, aucune supprimée ni déplacée hors d'atteinte —
@@ -30,26 +34,78 @@ const TUILES_MES_SERVICES = [
 export default async function MonEspaceDossierPage({ params }: { params: Promise<{ beneficiaireId: string }> }) {
   const { beneficiaireId } = await params
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const [dossiers, boussole, projets, fil, formationsIcc, cercles, scoreMoyenQuiz] = await Promise.all([
-    chargerDossiersBeneficiaire(supabase),
-    chargerBoussoleAutonomie(supabase, beneficiaireId),
-    chargerProjetsAvecProgression(supabase, beneficiaireId),
-    chargerFilActivite(supabase, beneficiaireId),
-    chargerFormationsAvecIcc(supabase, beneficiaireId),
-    chargerMesCercles(supabase, beneficiaireId),
-    chargerScoreMoyenQuiz(supabase, beneficiaireId),
-  ])
+  const [dossiers, boussole, projets, fil, formationsIcc, cercles, scoreMoyenQuiz, competences, solde, activiteTuteur, activiteSessionPro, activiteRevisions] =
+    await Promise.all([
+      chargerDossiersBeneficiaire(supabase),
+      chargerBoussoleAutonomie(supabase, beneficiaireId),
+      chargerProjetsAvecProgression(supabase, beneficiaireId),
+      chargerFilActivite(supabase, beneficiaireId),
+      chargerFormationsAvecIcc(supabase, beneficiaireId),
+      chargerMesCercles(supabase, beneficiaireId),
+      chargerScoreMoyenQuiz(supabase, beneficiaireId),
+      chargerCompetencesParDimension(supabase, beneficiaireId),
+      chargerSoldeCredits(supabase, beneficiaireId),
+      chargerActiviteTuteur(supabase, beneficiaireId),
+      chargerActiviteSessionPro(supabase, beneficiaireId),
+      chargerActiviteRevisions(supabase, beneficiaireId),
+    ])
   const dossier = dossiers.find((d) => d.id === beneficiaireId)
   if (!dossier) notFound()
+
+  const activiteApprentissage = user ? await chargerActiviteApprentissage(supabase, user.id) : null
 
   const iccAgrege = agregerScoresIcc(formationsIcc.map((f) => f.score))
   const profilProfessionnelDisponible =
     boussole.scoreGlobal != null || iccAgrege.savoirs != null || iccAgrege.savoirFaire != null || iccAgrege.savoirEtre != null
+  const nombreCompetencesValidees = [...competences.savoirs, ...competences.savoirFaire, ...competences.savoirEtre].filter((c) => c.statut === 'valide').length
 
   const projetsActifs = projets.filter((p) => p.statut !== 'abandonne')
   const projetPrincipal = projetsActifs.find((p) => p.statut === 'en_cours') ?? projetsActifs[0]
   const dernierEvenement = fil[0]
+
+  const activitesRecentes = [
+    activiteApprentissage && {
+      cle: 'apprentissage',
+      tag: 'Apprentissage',
+      couleur: 'var(--accent-apprentissage)',
+      titre: activiteApprentissage.formationTitre,
+      sous: activiteApprentissage.chapitreTitre ?? undefined,
+      pourcentage: activiteApprentissage.pourcentage,
+      bouton: 'Continuer',
+      href: `/mon-espace/${beneficiaireId}/marketplace`,
+    },
+    activiteTuteur && {
+      cle: 'tuteur',
+      tag: 'Tuteur IA',
+      couleur: 'var(--accent-tuteur)',
+      titre: 'Discussion en cours',
+      sous: `${activiteTuteur.personaNom} — ${activiteTuteur.domaine}`,
+      bouton: 'Poser une question',
+      href: `/mon-espace/${beneficiaireId}/tuteurs/${activiteTuteur.sessionId}`,
+    },
+    activiteRevisions && {
+      cle: 'revisions',
+      tag: 'Révisions',
+      couleur: 'var(--accent-revisions)',
+      titre: activiteRevisions.documentNom,
+      sous: activiteRevisions.meilleurScore != null ? `Dernier score : ${activiteRevisions.meilleurScore}%` : 'Aucune tentative pour l’instant',
+      bouton: 'Continuer',
+      href: `/mon-espace/${beneficiaireId}/revisions/quiz/${activiteRevisions.quizId}`,
+    },
+    activiteSessionPro && {
+      cle: 'session_pro',
+      tag: 'Session pro',
+      couleur: 'var(--accent-pro)',
+      titre: 'Simulation entretien',
+      sous: activiteSessionPro.personaNom,
+      bouton: 'Reprendre',
+      href: `/mon-espace/${beneficiaireId}/tuteurs/${activiteSessionPro.sessionId}`,
+    },
+  ].filter(Boolean) as { cle: string; tag: string; couleur: string; titre: string; sous?: string; pourcentage?: number; bouton: string; href: string }[]
 
   return (
     <div>
@@ -57,10 +113,88 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       <h1 className="font-cinzel font-semibold text-4xl text-text-primary">Bonjour {dossier.prenoms}</h1>
       <p className="text-text-muted text-sm mt-1.5 mb-9">{dossier.organisationNom}</p>
 
-      {/* ============================== ME CONNAÎTRE ============================== */}
-      <p id="boussole" className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">
-        Me connaître
-      </p>
+      {/* ============================== CARTES STATS ============================== */}
+      <div id="boussole" className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-8">
+        <StatCard
+          label="IGA — Autonomie"
+          valeur={boussole.scoreGlobal ?? '—'}
+          suffixe={boussole.scoreGlobal != null ? '/100' : undefined}
+          detail={boussole.scoreGlobal != null ? (NIVEAU_LABEL[boussole.niveau ?? ''] ?? boussole.niveau ?? '') : 'Aucune évaluation'}
+          visuel={<AnneauProgression pourcentage={boussole.scoreGlobal ?? 0} taille={44} epaisseur={5} />}
+          texteVocal={
+            boussole.scoreGlobal != null
+              ? `Ton indice général d'autonomie est de ${boussole.scoreGlobal} sur 100, niveau ${NIVEAU_LABEL[boussole.niveau ?? ''] ?? boussole.niveau}.`
+              : "Aucune évaluation d'autonomie enregistrée pour l'instant."
+          }
+        />
+        <StatCard
+          label="Compétences (ICC)"
+          valeur={nombreCompetencesValidees}
+          detail="Compétences validées"
+          lien={{ href: `${`/mon-espace/${beneficiaireId}`}#profil-professionnel`, texte: 'Voir mon profil →' }}
+          visuel={<AnneauProgression pourcentage={iccAgrege.savoirs ?? iccAgrege.savoirFaire ?? iccAgrege.savoirEtre ?? 0} taille={44} epaisseur={5} />}
+          texteVocal={`Tu as ${nombreCompetencesValidees} compétence${nombreCompetencesValidees > 1 ? 's' : ''} validée${nombreCompetencesValidees > 1 ? 's' : ''}.`}
+        />
+        <StatCard
+          label="Crédits disponibles"
+          valeur={solde}
+          detail="Solde de crédits"
+          lien={{ href: `/mon-espace/${beneficiaireId}/abonnement`, texte: 'Voir mon historique →' }}
+          visuel={<Coins size={22} className="text-accent-gold" />}
+          texteVocal={`Tu as ${solde} crédit${solde > 1 ? 's' : ''} disponible${solde > 1 ? 's' : ''}.`}
+        />
+        <StatCard
+          label="Objectifs en cours"
+          valeur={projetsActifs.length}
+          detail="Projets actifs"
+          lien={{ href: `/mon-espace/${beneficiaireId}/projets-vie`, texte: 'Continuer mes objectifs →' }}
+          visuel={<Target size={22} className="text-accent-gold" />}
+          texteVocal={`Tu as ${projetsActifs.length} objectif${projetsActifs.length > 1 ? 's' : ''} en cours.`}
+        />
+      </div>
+
+      {/* ============================== REPRENDRE MON ACTIVITÉ ============================== */}
+      {activitesRecentes.length > 0 && (
+        <>
+          <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Reprendre mon activité</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-8">
+            {activitesRecentes.map((a) => (
+              <Link
+                key={a.cle}
+                href={a.href}
+                className="rounded-2xl p-4 border block hover:opacity-90 transition-opacity"
+                style={{ background: `color-mix(in srgb, ${a.couleur} 14%, var(--bg-card))`, borderColor: `color-mix(in srgb, ${a.couleur} 30%, transparent)` }}
+              >
+                <span
+                  className="font-data text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full inline-block mb-2.5"
+                  style={{ background: `color-mix(in srgb, ${a.couleur} 22%, transparent)`, color: a.couleur }}
+                >
+                  {a.tag}
+                </span>
+                <p className="text-text-primary text-[13.5px] font-semibold leading-tight mb-1">{a.titre}</p>
+                {a.sous && <p className="text-text-muted text-[11px] mb-2">{a.sous}</p>}
+                {a.pourcentage != null && (
+                  <div className="h-1 bg-bg-surface rounded-full overflow-hidden mb-2.5">
+                    <div className="h-full rounded-full" style={{ width: `${a.pourcentage}%`, background: a.couleur }} />
+                  </div>
+                )}
+                <span className="text-[11.5px] font-semibold" style={{ color: a.couleur }}>
+                  {a.bouton} →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ============================== MON PARCOURS ============================== */}
+      <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Mon parcours</p>
+      <div className="mb-8">
+        <MonParcours savoirs={competences.savoirs} savoirFaire={competences.savoirFaire} savoirEtre={competences.savoirEtre} />
+      </div>
+
+      {/* ============================== ME CONNAÎTRE (détail) ============================== */}
+      <p className="font-data text-[11px] tracking-[0.18em] text-text-muted uppercase mb-3.5">Me connaître — en détail</p>
 
       {/* Boussole d'Autonomie */}
       <div className="bg-bg-card border border-border-soft rounded-[10px] p-8 mb-6 relative overflow-hidden">
@@ -324,11 +458,21 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
 
       <Link
         href={`/mon-espace/${beneficiaireId}/abonnement`}
-        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="font-cinzel text-[16px] text-text-primary">Mon abonnement</h2>
           <span className="text-accent-gold text-[12.5px]">Voir le statut →</span>
+        </div>
+      </Link>
+
+      <Link
+        href={`/mon-espace/${beneficiaireId}/parametres`}
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
+      >
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="font-cinzel text-[16px] text-text-primary">Paramètres · Apparence</h2>
+          <span className="text-accent-gold text-[12.5px]">Choisir ma palette →</span>
         </div>
       </Link>
     </div>
