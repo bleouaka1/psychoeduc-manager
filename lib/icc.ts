@@ -54,3 +54,21 @@ export function calculerIcc(evaluationsSavoir: EvaluationSavoir[], evaluationsSa
     savoirEtre: calculerScoreSavoirEtre(tagsSavoirEtreObserves),
   }
 }
+
+/** Agrège les scores ICC de toutes les formations d'un bénéficiaire en une seule
+ * lecture (handoff-icc-cv-navigation.md §1, vue "Profil professionnel") — moyenne
+ * simple des formations où la dimension a une valeur, jamais une pondération par
+ * durée/importance de formation (aucun référentiel officiel ne justifierait un tel
+ * poids, cf. note méthodologique en tête de fichier). */
+export function agregerScoresIcc(scores: ScoreIcc[]): ScoreIcc {
+  const moyenne = (valeurs: (number | null)[]): number | null => {
+    const presentes = valeurs.filter((v): v is number => v != null)
+    if (presentes.length === 0) return null
+    return Math.round((presentes.reduce((a, b) => a + b, 0) / presentes.length) * 10) / 10
+  }
+  return {
+    savoirs: moyenne(scores.map((s) => s.savoirs)),
+    savoirFaire: moyenne(scores.map((s) => s.savoirFaire)),
+    savoirEtre: moyenne(scores.map((s) => s.savoirEtre)),
+  }
+}

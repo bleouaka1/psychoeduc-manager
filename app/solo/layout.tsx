@@ -9,6 +9,7 @@ import { compteAAccesBeneficiaire } from '@/lib/comptes'
 import { createClient } from '@/lib/supabase/server'
 import { organisationApercuActive } from '@/lib/apercu'
 import { ApercuBanner } from '@/app/(dashboard)/_components/ApercuBanner'
+import { BoutonRetour } from '@/app/_components/BoutonRetour'
 
 export default async function SoloLayout({ children }: { children: React.ReactNode }) {
   const [organisation, isFondateur, messagesNonLus, aAccesBeneficiaire] = await Promise.all([
@@ -56,6 +57,8 @@ export default async function SoloLayout({ children }: { children: React.ReactNo
           </div>
 
           {apercu && <ApercuBanner organisation={apercu} />}
+
+          <BoutonRetour masquerSur={['/solo']} />
 
           {organisation ? (
             children

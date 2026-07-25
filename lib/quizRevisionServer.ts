@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ReponseNotion } from '@/lib/quizRevisionEncouragement'
 
 /** Fonctions de lecture pour le module Quiz de révision — partagées entre la page
  * bénéficiaire (/mon-espace/[id]/revisions) et une éventuelle vue équipe pédagogique
@@ -81,4 +82,65 @@ export async function chargerQuizzes(supabase: SupabaseClient, beneficiaireId: s
 export async function chargerSoldeCredits(supabase: SupabaseClient, beneficiaireId: string): Promise<number> {
   const { data } = await supabase.from('credits_revision').select('solde').eq('beneficiaire_id', beneficiaireId).maybeSingle()
   return data?.solde ?? 0
+}
+
+export async function chargerDatesCompletion(supabase: SupabaseClient, beneficiaireId: string): Promise<Date[]> {
+  const { data } = await supabase.from('quiz_revision_tentatives').select('completed_at').eq('beneficiaire_id', beneficiaireId)
+  return (data ?? []).map((t: any) => new Date(t.completed_at))
+}
+
+/** Résout chaque réponse donnée (reponses_json) en notion (le terme testé, stable
+ * même si le quiz est régénéré) + correcte/incorrecte, en croisant avec le contenu
+ * du quiz au moment de la tentative — nécessaire car reponses_json ne stocke que
+ * l'id de question et la réponse donnée, pas le jugement. */
+export async function chargerReponsesNotions(supabase: SupabaseClient, beneficiaireId: string): Promise<ReponseNotion[]> {
+  const { data: tentatives } = await supabase
+    .from('quiz_revision_tentatives')
+    .select('reponses_json, completed_at, quiz_revision:quiz_revision_id(contenu_json)')
+    .eq('beneficiaire_id', beneficiaireId)
+    .order('completed_at', { ascending: true })
+
+  const reponses: ReponseNotion[] = []
+  for (const t of tentatives ?? []) {
+    const questions = (t as any).quiz_revision?.contenu_json?.questions ?? []
+    const questionsParId = new Map<string, any>(questions.map((q: any) => [q.id, q]))
+    const reponsesDonnees = (t as any).reponses_json ?? {}
+    for (const [questionId, reponseDonnee] of Object.entries(reponsesDonnees)) {
+      const question = questionsParId.get(questionId)
+      if (!question) continue
+      reponses.push({
+        notion: question.reponseCorrecte,
+        correcte: reponseDonnee === question.reponseCorrecte,
+        date: new Date((t as any).completed_at),
+      })
+    }
+  }
+  return reponses
+}
+
+/** Moyenne des scores de tentatives — signal "Savoirs" affiché à part dans la vue
+ * Profil professionnel (handoff-icc-cv-navigation.md §1), jamais fusionné dans
+ * icc_evaluations_savoir : ce sont deux référentiels distincts (l'un déclaratif par
+ * le formateur, l'autre mesuré par quiz), les confondre en un seul chiffre masquerait
+ * leur origine et donnerait un faux sentiment de précision. */
+export async function chargerScoreMoyenQuiz(supabase: SupabaseClient, beneficiaireId: string): Promise<number | null> {
+  const { data } = await supabase.from('quiz_revision_tentatives').select('score').eq('beneficiaire_id', beneficiaireId)
+  if (!data || data.length === 0) return null
+  const moyenne = data.reduce((acc, t: any) => acc + Number(t.score), 0) / data.length
+  return Math.round(moyenne * 10) / 10
+}
+
+export type NoteEncouragement = { id: string; message: string; createdAt: string }
+
+export async function chargerNoteEncouragementNonVue(supabase: SupabaseClient, beneficiaireId: string): Promise<NoteEncouragement | null> {
+  const { data } = await supabase
+    .from('notes_encouragement_revision')
+    .select('id, message, created_at')
+    .eq('beneficiaire_id', beneficiaireId)
+    .is('affichee_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return data ? { id: data.id, message: data.message, createdAt: data.created_at } : null
 }

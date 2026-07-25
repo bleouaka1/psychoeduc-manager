@@ -1,4 +1,4 @@
-/** Module "Quiz de révision" (handoff-quiz-revision-ia-2.md) — logique métier pure,
+/** Module "Quiz de révision" (handoff-quiz-revision-ia-3.md) — logique métier pure,
  * en TypeScript standard, aucune dépendance DB ni IA ici (testable en isolation,
  * même principe que lib/iga.ts). Couvre le moteur de génération GRATUIT (§5.1) et
  * l'écran de préférence (§3) — jamais d'appel réseau dans ce fichier. */
@@ -13,7 +13,7 @@ export type QuestionQuiz = {
   explication: string
 }
 
-export type ContenuQuiz = { questions: QuestionQuiz[] }
+export type ContenuQuiz = { questions: QuestionQuiz[]; minimumAtteint?: boolean }
 
 // ---------------------------------------------------------------------------
 // §3 — Écran de préférence : mapping statique, aucune génération dynamique.
@@ -34,6 +34,9 @@ export const RECOMMANDATION_OBJECTIF: Record<PreferenceObjectif, { message: stri
 
 // ---------------------------------------------------------------------------
 // §5.1 — Moteur de génération gratuit, sans IA (règles/NLP classique).
+// Cible 50 questions minimum (§5.1, v3) : varie les angles (texte à trous,
+// question inversée définition→terme, vrai/faux) plutôt que de répéter la même
+// question à l'identique — un même fait source peut donner 3-4 questions distinctes.
 // ---------------------------------------------------------------------------
 
 const MOTS_VIDES = new Set([
@@ -49,7 +52,7 @@ function decouperEnPhrases(texte: string): string[] {
     .filter((p) => p.length >= 20)
 }
 
-function extraireMotsCles(texte: string, limite = 15): string[] {
+function extraireMotsCles(texte: string, limite = 40): string[] {
   const mots = (texte.toLowerCase().match(/[a-zàâäéèêëïîôöùûüç-]{4,}/g) ?? []).filter((m) => !MOTS_VIDES.has(m))
   const frequences = new Map<string, number>()
   for (const mot of mots) frequences.set(mot, (frequences.get(mot) ?? 0) + 1)
@@ -82,7 +85,7 @@ function detecterDefinitions(phrases: string[]): Definition[] {
 }
 
 function tirerDistracteurs(motCorrect: string, banque: string[], nombre = 3): string[] {
-  const candidats = banque.filter((m) => m !== motCorrect)
+  const candidats = banque.filter((m) => m.toLowerCase() !== motCorrect.toLowerCase())
   const distracteurs: string[] = []
   const copie = [...candidats]
   while (distracteurs.length < nombre && copie.length > 0) {
@@ -98,25 +101,39 @@ function tirerDistracteurs(motCorrect: string, banque: string[], nombre = 3): st
   return distracteurs
 }
 
+function melanger<T>(items: T[]): T[] {
+  return [...items].sort(() => Math.random() - 0.5)
+}
+
 /**
  * Génère un quiz "texte à trous" à partir d'un texte source, sans aucun appel IA.
  * Qualité assumée comme inférieure au palier payant (cf. §5.1 du document) — jamais
  * présenté comme équivalent, message d'avertissement géré côté UI, pas ici.
+ *
+ * Cible `nbQuestionsCible` (50 par défaut, §5.1 v3) : si le document source ne permet
+ * pas d'atteindre ce minimum même en variant les angles, retourne le maximum possible
+ * et `minimumAtteint: false` — jamais de question dupliquée à l'identique pour
+ * combler artificiellement le compte.
  */
-export function genererQuizGratuit(texteSource: string, nbQuestions = 8): ContenuQuiz {
+export function genererQuizGratuit(texteSource: string, nbQuestionsCible = 50): ContenuQuiz {
   const phrases = decouperEnPhrases(texteSource)
   const motsCles = extraireMotsCles(texteSource)
   const definitions = detecterDefinitions(phrases)
 
   const questions: QuestionQuiz[] = []
+  const enoncesUtilises = new Set<string>()
   let compteur = 1
 
-  // Priorité aux phrases de définition explicite (meilleure qualité de question).
+  function ajouter(q: Omit<QuestionQuiz, 'id'>) {
+    if (enoncesUtilises.has(q.enonce)) return
+    enoncesUtilises.add(q.enonce)
+    questions.push({ id: `q${compteur++}`, ...q })
+  }
+
+  // Angle 1 — texte à trous sur le terme défini.
   for (const def of definitions) {
-    if (questions.length >= nbQuestions) break
-    const options = [def.sujet, ...tirerDistracteurs(def.sujet, motsCles, 3)].sort(() => Math.random() - 0.5)
-    questions.push({
-      id: `q${compteur++}`,
+    const options = melanger([def.sujet, ...tirerDistracteurs(def.sujet, motsCles, 3)])
+    ajouter({
       type: 'qcm',
       categorie: 'Définition',
       enonce: `Complète : "___ ${def.definition}"`,
@@ -126,26 +143,67 @@ export function genererQuizGratuit(texteSource: string, nbQuestions = 8): Conten
     })
   }
 
-  // Complète avec des questions "texte à trous" sur les mots-clés dans leur phrase d'origine.
-  for (const motCle of motsCles) {
-    if (questions.length >= nbQuestions) break
-    const phraseSource = phrases.find((p) => p.toLowerCase().includes(motCle))
-    if (!phraseSource) continue
-    const enonce = phraseSource.replace(new RegExp(motCle, 'i'), '___')
-    if (enonce === phraseSource) continue
-    const options = [motCle, ...tirerDistracteurs(motCle, motsCles, 3)].sort(() => Math.random() - 0.5)
-    questions.push({
-      id: `q${compteur++}`,
+  // Angle 2 — question inversée : terme → définition (au lieu de définition → terme).
+  for (const def of definitions) {
+    const autresDefinitions = definitions.filter((d) => d.sujet !== def.sujet).map((d) => d.definition)
+    const options = melanger([def.definition, ...tirerDistracteurs(def.definition, autresDefinitions.length >= 3 ? autresDefinitions : [...autresDefinitions, ...motsCles], 3)])
+    ajouter({
       type: 'qcm',
-      categorie: 'Mot-clé',
-      enonce,
+      categorie: 'Définition',
+      enonce: `Que signifie "${def.sujet}" ?`,
       options,
-      reponseCorrecte: motCle,
-      explication: phraseSource,
+      reponseCorrecte: def.definition,
+      explication: def.phrase,
     })
   }
 
-  return { questions }
+  // Angle 3 — vrai/faux sur l'énoncé d'origine (vrai) et une version altérée (faux, terme substitué).
+  for (const def of definitions) {
+    ajouter({
+      type: 'qcm',
+      categorie: 'Vrai ou faux',
+      enonce: `Vrai ou faux : "${def.phrase}"`,
+      options: ['Vrai', 'Faux'],
+      reponseCorrecte: 'Vrai',
+      explication: def.phrase,
+    })
+    const distracteur = tirerDistracteurs(def.sujet, motsCles, 1)[0]
+    if (distracteur) {
+      const phraseAlteree = def.phrase.replace(new RegExp(def.sujet, 'i'), distracteur)
+      if (phraseAlteree !== def.phrase) {
+        ajouter({
+          type: 'qcm',
+          categorie: 'Vrai ou faux',
+          enonce: `Vrai ou faux : "${phraseAlteree}"`,
+          options: ['Vrai', 'Faux'],
+          reponseCorrecte: 'Faux',
+          explication: def.phrase,
+        })
+      }
+    }
+  }
+
+  // Angle 4 — texte à trous sur chaque mot-clé, dans CHAQUE phrase où il apparaît
+  // (pas seulement la première) : une même notion revient souvent dans un support
+  // de formation, chaque occurrence est une question distincte et légitime.
+  for (const motCle of motsCles) {
+    const phrasesAvecMotCle = phrases.filter((p) => p.toLowerCase().includes(motCle))
+    for (const phraseSource of phrasesAvecMotCle) {
+      const enonce = phraseSource.replace(new RegExp(motCle, 'i'), '___')
+      if (enonce === phraseSource) continue
+      const options = melanger([motCle, ...tirerDistracteurs(motCle, motsCles, 3)])
+      ajouter({
+        type: 'qcm',
+        categorie: 'Mot-clé',
+        enonce,
+        options,
+        reponseCorrecte: motCle,
+        explication: phraseSource,
+      })
+    }
+  }
+
+  return { questions: questions.slice(0, nbQuestionsCible), minimumAtteint: questions.length >= nbQuestionsCible }
 }
 
 // ---------------------------------------------------------------------------

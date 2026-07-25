@@ -57,7 +57,9 @@ Le rabot est un outil qui permet de lisser et d'aplanir une surface de bois avan
   await beneficiaire.page.waitForURL(/\/revisions\/quiz\//, { timeout: 30_000 })
 
   // Répond à toutes les questions (première option à chaque fois) jusqu'à la fin.
-  for (let i = 0; i < 10; i++) {
+  // Depuis le moteur "50 questions minimum" (handoff v3 §T4), même un support court
+  // génère largement plus de 10 questions — marge de sécurité au-delà du maximum réel.
+  for (let i = 0; i < 60; i++) {
     const boutonSuivant = beneficiaire.page.getByRole('button', { name: /Question suivante|Terminer/ })
     if (!(await boutonSuivant.isVisible().catch(() => false))) break
     const premiereOption = beneficiaire.page.locator('button.w-full.text-left').first()

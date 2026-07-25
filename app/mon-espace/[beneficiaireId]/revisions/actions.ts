@@ -163,7 +163,7 @@ Niveau de difficulté demandé : ${niveauDifficulte}
 - excellence : questions ouvertes nécessitant une réponse rédigée, pas de QCM
 
 Type de questions : ${typeQuestions}
-Nombre de questions : 8
+Nombre de questions : 50 (minimum ; si le contenu source est trop limité pour 50 questions non redondantes, varie les angles — reformulation, synonymes, inversion définition/terme — plutôt que de répéter une question à l'identique)
 
 Format de sortie JSON :
 {"questions":[{"id":"q1","type":"qcm","categorie":"string","enonce":"string","options":["...","...","...","..."],"reponse_correcte":"string","explication":"string"}]}`
@@ -179,7 +179,9 @@ Format de sortie JSON :
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 2000,
+        // 50 questions structurées (v3) nécessitent bien plus de place qu'un quiz court —
+        // budget relevé en conséquence (coût estimé révisé à ~$0.03-0.04/génération, v3 §1).
+        max_tokens: 8000,
         system: promptSysteme,
         messages: [{ role: 'user', content: document.contenu_texte.slice(0, 12000) }],
       }),
@@ -249,4 +251,40 @@ export async function enregistrerTentative(
 
   revalidatePath(`/mon-espace/${beneficiaireId}/revisions`)
   return { error: null }
+}
+
+/** Mot de reconnaissance du formateur (§9, v3) — texte libre saisi manuellement,
+ * jamais généré automatiquement. Réservé à l'équipe pédagogique. */
+export async function ajouterNoteEncouragement(beneficiaireId: string, formData: FormData): Promise<void> {
+  const message = String(formData.get('message') ?? '').trim()
+  if (!message) return
+
+  const supabase = await createClient()
+  const { data: estFondateur } = await supabase.rpc('is_fondateur')
+  const beneficiaire = await chargerBeneficiaire(supabase, beneficiaireId)
+  if (!beneficiaire) return
+
+  if (!estFondateur) {
+    const { data: peutCreer } = await supabase.rpc('peut_creer', { p_module: 'notes_encouragement_revision', p_organisation_id: beneficiaire.organisation_id })
+    if (!peutCreer) return
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  await supabase.from('notes_encouragement_revision').insert({
+    beneficiaire_id: beneficiaireId,
+    organisation_id: beneficiaire.organisation_id,
+    message,
+    created_by: user?.id,
+  })
+
+  revalidatePath(`/mon-espace/${beneficiaireId}/revisions`)
+}
+
+export async function marquerNoteEncouragementVue(beneficiaireId: string, noteId: string): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('notes_encouragement_revision').update({ affichee_at: new Date().toISOString() }).eq('id', noteId)
+  revalidatePath(`/mon-espace/${beneficiaireId}/revisions`)
 }

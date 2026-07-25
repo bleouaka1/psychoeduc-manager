@@ -5,6 +5,7 @@ import Topbar from './_components/Topbar'
 import { getMonOrganisation } from './_lib/getMonOrganisation'
 import { organisationApercuActive } from '@/lib/apercu'
 import { ApercuBanner } from './_components/ApercuBanner'
+import { BoutonRetour } from '@/app/_components/BoutonRetour'
 
 export const metadata: Metadata = {
   title: 'Cockpit Fondateur — PsychoÉduc Manager',
@@ -46,6 +47,7 @@ export default async function DashboardLayout({
         <Topbar email={user?.email} />
         <main className="flex-1 px-10 pb-16">
           {apercu && <ApercuBanner organisation={apercu} />}
+          <BoutonRetour masquerSur={['/dashboard']} />
           {children}
         </main>
       </div>

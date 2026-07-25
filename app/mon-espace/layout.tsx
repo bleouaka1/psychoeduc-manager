@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { destinationOrganisationActive } from '@/lib/comptes'
 import { impersonationActive } from '@/lib/apercu'
 import { ImpersonationBanner } from '../(dashboard)/_components/ImpersonationBanner'
+import { BoutonRetour } from '../_components/BoutonRetour'
 import { logout } from '../login/actions'
 
 export default async function MonEspaceLayout({ children }: { children: React.ReactNode }) {
@@ -53,7 +54,10 @@ export default async function MonEspaceLayout({ children }: { children: React.Re
         </div>
       )}
 
-      <div className="relative z-[1] px-6 sm:px-10 py-11 max-w-3xl mx-auto">{children}</div>
+      <div className="relative z-[1] px-6 sm:px-10 py-11 max-w-3xl mx-auto">
+        <BoutonRetour profondeurAccueil={2} />
+        {children}
+      </div>
 
       <footer className="relative z-[1] max-w-3xl mx-auto px-6 sm:px-10 pb-12 pt-6 mt-6 border-t border-border-soft text-center">
         <p className="font-data text-[10.5px] tracking-[0.1em] text-text-muted uppercase">

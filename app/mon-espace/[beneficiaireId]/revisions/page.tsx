@@ -1,12 +1,21 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { BookOpen, CheckCircle2, Clock } from 'lucide-react'
+import { BookOpen, CheckCircle2, Clock, TrendingUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
-import { chargerDocumentsQuiz, chargerQuizzes, chargerSoldeCredits } from '@/lib/quizRevisionServer'
-import { deposerDocument, validerDocumentQuiz, genererQuizGratuit, genererQuizPayant } from './actions'
+import {
+  chargerDocumentsQuiz,
+  chargerQuizzes,
+  chargerSoldeCredits,
+  chargerDatesCompletion,
+  chargerReponsesNotions,
+  chargerNoteEncouragementNonVue,
+} from '@/lib/quizRevisionServer'
+import { calculerFrequenceHebdomadaire, calculerProgressionParNotion, choisirNotionAvantApres } from '@/lib/quizRevisionEncouragement'
+import { deposerDocument, validerDocumentQuiz, genererQuizGratuit, genererQuizPayant, ajouterNoteEncouragement, marquerNoteEncouragementVue } from './actions'
 import { GenererQuizForm } from './_components/GenererQuizForm'
 import { DeposerDocumentForm } from './_components/DeposerDocumentForm'
+import { NoteEncouragementBanner } from './_components/NoteEncouragementBanner'
 
 export default async function RevisionsPage({ params }: { params: Promise<{ beneficiaireId: string }> }) {
   const { beneficiaireId } = await params
@@ -28,11 +37,19 @@ export default async function RevisionsPage({ params }: { params: Promise<{ bene
     if (!peutLire) notFound()
   }
 
-  const [documents, quizzes, solde] = await Promise.all([
+  const [documents, quizzes, solde, datesCompletion, reponsesNotions, noteEncouragement] = await Promise.all([
     chargerDocumentsQuiz(supabase, beneficiaireId),
     chargerQuizzes(supabase, beneficiaireId),
     chargerSoldeCredits(supabase, beneficiaireId),
+    chargerDatesCompletion(supabase, beneficiaireId),
+    chargerReponsesNotions(supabase, beneficiaireId),
+    chargerNoteEncouragementNonVue(supabase, beneficiaireId),
   ])
+
+  const frequenceHebdo = calculerFrequenceHebdomadaire(datesCompletion)
+  const progressionNotions = calculerProgressionParNotion(reponsesNotions)
+  const notionsARappeler = progressionNotions.filter((p) => p.meriteRappel).slice(0, 5)
+  const notionAvantApres = choisirNotionAvantApres(progressionNotions)
 
   const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -44,6 +61,54 @@ export default async function RevisionsPage({ params }: { params: Promise<{ bene
       <p className="text-text-muted text-[12.5px] mb-7">
         Solde de crédits (mode approfondi) : <span className="font-data text-accent-gold">{solde}</span>
       </p>
+
+      {noteEncouragement && (
+        <NoteEncouragementBanner message={noteEncouragement.message} onVue={marquerNoteEncouragementVue.bind(null, beneficiaireId, noteEncouragement.id)} />
+      )}
+
+      {(datesCompletion.length > 0 || estFondateur) && (
+        <div className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
+          <h2 className="font-cinzel text-[15px] text-text-primary mb-4 flex items-center gap-2">
+            <TrendingUp size={15} className="text-accent-gold" /> Ma progression
+          </h2>
+          <p className="text-text-muted text-[13.5px] mb-3">
+            {frequenceHebdo > 0
+              ? `Tu as révisé ${frequenceHebdo} jour(s) cette semaine.`
+              : 'Aucune révision cette semaine — reprends à ton rythme, sans pression.'}
+          </p>
+          {notionAvantApres && (
+            <p className="text-text-muted text-[13.5px] mb-3">
+              Progrès réel sur « {notionAvantApres.notion} » : raté le {formatter.format(notionAvantApres.premiereDate)} → réussi le{' '}
+              {formatter.format(notionAvantApres.derniereDate)}.
+            </p>
+          )}
+          {notionsARappeler.length > 0 && (
+            <div>
+              <p className="text-text-muted text-[12.5px] mb-1.5">Ces notions méritent un rappel :</p>
+              <div className="flex flex-wrap gap-1.5">
+                {notionsARappeler.map((n) => (
+                  <span key={n.notion} className="text-[12px] text-accent-gold border border-accent-gold-dim/40 rounded-full px-2.5 py-1">
+                    {n.notion}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {estFondateur && (
+            <form action={ajouterNoteEncouragement.bind(null, beneficiaireId)} className="flex flex-wrap gap-2.5 mt-4 pt-4 border-t border-border-soft">
+              <input
+                name="message"
+                placeholder="Un mot de reconnaissance pour ce bénéficiaire…"
+                className="flex-1 min-w-[220px] bg-bg-surface border border-border-soft rounded-lg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-gold-dim"
+              />
+              <button type="submit" className="text-[13px] text-accent-gold border border-accent-gold-dim/50 rounded-full px-4 py-2">
+                Envoyer
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       <div className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
         <h2 className="font-cinzel text-[15px] text-text-primary mb-4">Déposer un nouveau support</h2>

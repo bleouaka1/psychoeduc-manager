@@ -1,10 +1,12 @@
 import Link from 'next/link'
-import { Store, Users2, Rocket, LineChart, BookOpen } from 'lucide-react'
+import { Store, Users2, Rocket, LineChart, BookOpen, FileText } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { chargerBoussoleAutonomie, chargerDossiersBeneficiaire } from '@/lib/beneficiaireDashboard'
 import { chargerProjetsAvecProgression, chargerFilActivite } from '@/lib/projetVie'
 import { chargerFormationsAvecIcc } from '@/lib/iccServer'
+import { agregerScoresIcc } from '@/lib/icc'
+import { chargerScoreMoyenQuiz } from '@/lib/quizRevisionServer'
 import { chargerMesCercles } from '@/lib/cerclesApprentissageServer'
 import { NIVEAU_LABEL } from '@/lib/iga'
 import { RadarAutonomie } from '../_components/RadarAutonomie'
@@ -20,16 +22,21 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
   const { beneficiaireId } = await params
   const supabase = await createClient()
 
-  const [dossiers, boussole, projets, fil, formationsIcc, cercles] = await Promise.all([
+  const [dossiers, boussole, projets, fil, formationsIcc, cercles, scoreMoyenQuiz] = await Promise.all([
     chargerDossiersBeneficiaire(supabase),
     chargerBoussoleAutonomie(supabase, beneficiaireId),
     chargerProjetsAvecProgression(supabase, beneficiaireId),
     chargerFilActivite(supabase, beneficiaireId),
     chargerFormationsAvecIcc(supabase, beneficiaireId),
     chargerMesCercles(supabase, beneficiaireId),
+    chargerScoreMoyenQuiz(supabase, beneficiaireId),
   ])
   const dossier = dossiers.find((d) => d.id === beneficiaireId)
   if (!dossier) notFound()
+
+  const iccAgrege = agregerScoresIcc(formationsIcc.map((f) => f.score))
+  const profilProfessionnelDisponible =
+    boussole.scoreGlobal != null || iccAgrege.savoirs != null || iccAgrege.savoirFaire != null || iccAgrege.savoirEtre != null
 
   const projetsActifs = projets.filter((p) => p.statut !== 'abandonne')
   const projetPrincipal = projetsActifs.find((p) => p.statut === 'en_cours') ?? projetsActifs[0]
@@ -121,6 +128,43 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
         })}
       </div>
 
+      {/* Profil professionnel — synthèse ICC × IGA (handoff-icc-cv-navigation.md §1) :
+          vue employabilité distincte de la Boussole d'Autonomie, jamais un second radar. */}
+      {profilProfessionnelDisponible && (
+        <div className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
+          <h2 className="font-cinzel text-[16px] text-text-primary mb-1">Profil professionnel</h2>
+          <p className="text-text-muted text-[11.5px] mb-5">
+            Une vue d’ensemble honnête de ta progression — pas un score à optimiser, un constat.
+          </p>
+          <div className="space-y-3.5">
+            {[
+              { label: 'Autonomie (IGA)', valeur: boussole.scoreGlobal },
+              { label: 'Savoirs (ICC)', valeur: iccAgrege.savoirs },
+              { label: 'Savoir-faire (ICC)', valeur: iccAgrege.savoirFaire },
+              { label: 'Savoir-être (ICC)', valeur: iccAgrege.savoirEtre },
+            ].map((ligne) => (
+              <div key={ligne.label}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-text-muted text-[12.5px]">{ligne.label}</span>
+                  <span className="font-data text-accent-gold text-[12.5px]">{ligne.valeur ?? '—'}</span>
+                </div>
+                <div className="h-1.5 bg-bg-surface rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-accent-gold to-accent-gold-dim rounded-full"
+                    style={{ width: `${ligne.valeur ?? 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          {scoreMoyenQuiz != null && (
+            <p className="text-text-muted text-[11.5px] mt-4 pt-4 border-t border-border-soft">
+              Signal complémentaire : moyenne de tes quiz de révision — <span className="font-data text-accent-gold">{scoreMoyenQuiz}%</span>
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ICC */}
       {formationsIcc.map((f) => (
         <div key={f.formationId} className="bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6">
@@ -181,13 +225,27 @@ export default async function MonEspaceDossierPage({ params }: { params: Promise
       {/* Bibliothèque / Révisions */}
       <Link
         href={`/mon-espace/${beneficiaireId}/revisions`}
-        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 mb-6 hover:border-accent-gold-dim transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <BookOpen size={16} className="text-accent-gold" />
           <div>
             <h2 className="font-cinzel text-[16px] text-text-primary">Bibliothèque de révision</h2>
             <p className="text-text-muted text-[12.5px] mt-1">Dépose un support de formation et génère un quiz pour réviser.</p>
+          </div>
+        </div>
+      </Link>
+
+      {/* Génération de CV */}
+      <Link
+        href={`/mon-espace/${beneficiaireId}/cv`}
+        className="block bg-bg-card border border-border-soft rounded-[10px] p-6 hover:border-accent-gold-dim transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <FileText size={16} className="text-accent-gold" />
+          <div>
+            <h2 className="font-cinzel text-[16px] text-text-primary">Mon CV</h2>
+            <p className="text-text-muted text-[12.5px] mt-1">Génère un CV à partir de ton profil de compétences et de ta progression.</p>
           </div>
         </div>
       </Link>
